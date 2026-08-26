@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cal — R Calculator</title>
+<style>
+  :root { color-scheme: dark;
+    --ink:#e8eaf0; --sub:#9aa3b2; --mut:#6b7484; --bd:rgba(255,255,255,.08); --bd2:rgba(255,255,255,.14);
+    --bg:#0c0e12; --card:#14171d; --inset:#1a1e26;
+    --accent:#4d9fff; --green:#2fd583; --red:#f4655f; --amber:#f0a832;
+    --greenbg:rgba(47,213,131,.12); --redbg:rgba(244,101,95,.12); --amberbg:rgba(240,168,50,.13); --bluebg:rgba(77,159,255,.10);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(1100px 500px at 50% -180px, #17233a 0%, var(--bg) 55%) fixed, var(--bg);
+    color:var(--ink); font-size:14px; line-height:1.5; }
+  .wrap { max-width:1000px; margin:0 auto; padding:24px 20px 60px; }
+  h1 { font-size:26px; font-weight:700; margin:0; letter-spacing:.01em;
+    background:linear-gradient(90deg,#e8eaf0 20%, var(--accent) 75%, #7cc4ff);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; display:inline-block; }
+  h1::before { content:"◆ "; -webkit-text-fill-color:var(--accent); font-size:16px; vertical-align:3px; }
+  h2 { font-size:12px; font-weight:600; margin:0 0 12px; color:var(--sub); text-transform:uppercase; letter-spacing:.12em; }
+  .tag { color:var(--sub); font-size:13px; margin:4px 0 20px; }
+  .card { background:linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 60%), var(--card);
+    border:1px solid var(--bd); border-radius:14px; padding:18px 20px; margin-bottom:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  label { display:block; font-size:11px; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.06em; }
+  input, select { font:inherit; padding:8px 10px; border:1px solid var(--bd2); border-radius:9px; background:var(--inset); color:var(--ink); width:110px; }
+  input::placeholder { color:#525a68; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(77,159,255,.22); }
+  input.wide { width:150px; }
+  input[type=number] { font-family:var(--mono); font-size:13px; }
+  button { font:inherit; font-weight:500; padding:8px 14px; border:1px solid var(--bd2); border-radius:9px; background:var(--inset); color:var(--ink); cursor:pointer; transition:all .15s; }
+  button:hover { border-color:var(--accent); color:#cfe4ff; box-shadow:0 0 12px rgba(77,159,255,.18); }
+  button.primary { background:linear-gradient(180deg,#5aa8ff,#2f7fe0); border-color:transparent; color:#071120; font-weight:600; }
+  button.primary:hover { filter:brightness(1.12); box-shadow:0 0 16px rgba(77,159,255,.4); color:#071120; }
+  button.small { padding:4px 10px; font-size:12.5px; }
+  button.danger { color:var(--red); }
+  button.danger:hover { border-color:var(--red); box-shadow:0 0 12px rgba(244,101,95,.25); color:var(--red); }
+  .runit { font-size:22px; font-weight:700; font-family:var(--mono); color:#fff; text-shadow:0 0 18px rgba(77,159,255,.45); }
+  .runit small { font-size:11px; color:var(--sub); font-weight:400; font-family:inherit; text-shadow:none; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(122px,1fr)); gap:8px; margin:14px 0; }
+  .metric { background:var(--inset); border:1px solid var(--bd); border-radius:10px; padding:9px 11px; }
+  .metric .k { font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.07em; }
+  .metric .v { font-size:15px; font-weight:600; font-family:var(--mono); margin-top:2px; }
+  .metric .r { font-size:11px; color:var(--mut); font-family:var(--mono); }
+  .pos { color:var(--green); } .neg { color:var(--red); }
+  .pill { display:inline-block; font-size:11px; font-weight:600; padding:3px 10px; border-radius:99px; letter-spacing:.04em; border:1px solid transparent; }
+  .pill.long { background:var(--greenbg); color:var(--green); border-color:rgba(47,213,131,.3); }
+  .pill.short { background:var(--redbg); color:var(--red); border-color:rgba(244,101,95,.3); }
+  .pill.tier { background:var(--bluebg); color:#8fc4ff; border-color:rgba(77,159,255,.3); }
+  .pill.house { background:var(--greenbg); color:var(--green); border-color:rgba(47,213,131,.35); box-shadow:0 0 12px rgba(47,213,131,.18); }
+  .pill.atrisk { background:var(--amberbg); color:var(--amber); border-color:rgba(240,168,50,.3); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--sub); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--bd2); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  td { padding:6px 8px; border-bottom:1px solid var(--bd); font-family:var(--mono); font-size:12px; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .calbox { background:var(--bluebg); border:1px solid rgba(77,159,255,.25); border-left:3px solid var(--accent); border-radius:10px; padding:12px 14px; margin-top:14px; }
+  .calbox .head { font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.16em; margin-bottom:6px; }
+  .calans { font-size:16px; font-weight:700; font-family:var(--mono); color:#fff; }
+  .calsub { font-size:12.5px; color:var(--sub); }
+  .calsub b { color:#cfe4ff; font-family:var(--mono); }
+  .err { color:var(--red); font-size:12.5px; margin-top:4px; }
+  .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--bd); }
+  .action { background:var(--inset); border:1px solid var(--bd); border-radius:10px; padding:10px 12px; }
+  .action .t { font-size:10.5px; font-weight:600; margin-bottom:7px; color:var(--sub); text-transform:uppercase; letter-spacing:.08em; }
+  .action .row { gap:8px; }
+  .action input { width:90px; padding:5px 8px; font-size:12.5px; }
+  .tradehead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .tradehead .tk { font-size:18px; font-weight:700; font-family:var(--mono); letter-spacing:.02em; }
+  .muted { color:var(--mut); font-size:12px; }
+  .chartbox { position:relative; height:150px; margin-top:14px; background:rgba(0,0,0,.18); border:1px solid var(--bd); border-radius:10px; padding:8px; }
+  .statrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; }
+  details summary { cursor:pointer; color:var(--sub); font-size:13px; }
+  details summary:hover { color:var(--ink); }
+  textarea { width:100%; height:110px; font-family:var(--mono); font-size:11.5px; border:1px solid var(--bd2); border-radius:9px; padding:8px; background:var(--inset); color:var(--ink); }
+  .hint { font-size:12px; color:var(--mut); margin-top:6px; }
+  ::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-thumb { background:#2a3140; border-radius:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cal</h1>
+  <p class="tag">R is the center of the universe. Method units, not dollars. The calculator decides what you risk — you comply.</p>
+
+  <div style="display:flex;gap:8px;margin:0 0 16px;">
+    <button id="tab_trading" onclick="switchPortfolio('trading')">Trading Portfolio</button>
+    <button id="tab_main" onclick="switchPortfolio('main')">Main Portfolio</button>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <div class="row">
+        <div><label>Portfolio value (AUM)</label><input type="text" id="aum" class="wide" inputmode="decimal" style="font-family:var(--mono);font-size:13px;"></div>
+        <div><label>R as % of portfolio</label><input type="number" id="rpct" step="0.05"></div>
+        <div><label>Tier multipliers (A+ / A / B)</label>
+          <span style="display:flex;gap:6px;">
+            <input type="number" id="t0" step="0.25" style="width:60px">
+            <input type="number" id="t1" step="0.25" style="width:60px">
+            <input type="number" id="t2" step="0.25" style="width:60px">
+          </span>
+        </div>
+        <div><label>Compound realized into AUM</label><select id="compound" style="width:80px"><option value="1">Yes</option><option value="0">No</option></select></div>
+        <div><label>Max open heat (R)</label><input type="number" id="heatcap" step="0.5" style="width:70px"></div>
+        <div><label>Cold-streak brake (R / last 5)</label><input type="number" id="coldr" step="0.5" style="width:70px"></div>
+        <div><label>Finnhub API key (free — finnhub.io)</label><input id="fhkey" class="wide" placeholder="paste key" autocomplete="off"></div>
+        <div><button id="refreshBtn">Refresh marks</button></div>
+      </div>
+      <div class="runit" id="runitBox"></div>
+    </div>
+    <p class="hint" id="refreshStatus"></p>
+    <p class="hint">1R recalculates from AUM — it scales as you compound. Each trade locks its R unit at open. R expresses edge, never desired size — the survival levers (heat cap, cold-streak brake) live separately on purpose. Data lives locally: use Export below to back up.</p>
+  </div>
+
+  <div class="card">
+    <h2>New trade</h2>
+    <div class="row">
+      <div><label>Ticker</label><input id="nt_tk" style="width:90px" placeholder="TICKER"></div>
+      <div><label>Side</label><select id="nt_side" style="width:90px"><option value="1">Long</option><option value="-1">Short</option></select></div>
+      <div><label>Tier</label><select id="nt_tier" style="width:110px"></select></div>
+      <div><label>Custom R (opt)</label><input type="number" id="nt_rb" step="0.05" style="width:70px" placeholder="0.25"></div>
+      <div><label>Concept / setup</label><input id="nt_concept" class="wide" placeholder="flag continuation"></div>
+      <div><label>Entry price</label><input type="number" id="nt_entry" step="any"></div>
+      <div><label>Stop</label><input type="number" id="nt_stop" step="any"></div>
+      <div><label>ADR %</label><input type="number" id="nt_adr" step="0.1" style="width:70px" placeholder="5.0"></div>
+      <div><label>Shares</label><input type="number" id="nt_qty" step="any" placeholder="Cal"></div>
+      <button class="primary" id="nt_open">Open trade</button>
+    </div>
+    <div class="calbox" id="nt_calbox" style="display:none;">
+      <div class="head">CAL SAYS</div>
+      <div class="calans" id="nt_calans"></div>
+      <div class="calsub" id="nt_calsub"></div>
+      <div class="calsub" id="nt_vol" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);"></div>
+    </div>
+    <div class="err" id="nt_err"></div>
+  </div>
+
+  <div class="card" id="heatBar" style="display:none;"></div>
+
+  <div id="openTrades"></div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button class="small" id="closedTgl" onclick="toggleClosed()" style="padding:2px 9px;">&#9662;</button>
+      <h2 style="margin:0;">Closed trades</h2>
+      <span class="muted" id="closedSummary" style="font-family:var(--mono);"></span>
+    </div>
+    <div id="closedBody" style="margin-top:14px;">
+      <div class="statrow" id="stats"></div>
+      <div style="overflow-x:auto; margin-top:12px;"><table id="closedTbl"></table></div>
+      <div class="chartbox" id="rhistBox" style="height:150px;display:none;"><canvas id="rhist"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>The bible — Russo's rules</h2>
+    <p class="hint" style="margin:0 0 10px;">Distilled from the six-part memoir and his comment replies (simon-russo.com). Paraphrased — read the originals; the stories carry what the rules can't.</p>
+
+    <details open>
+      <summary style="font-weight:600;color:var(--accent);">I. R — the center of the universe</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>R is a fixed percentage of the portfolio and scales with AUM. Once set, positions are denominated in method units, never dollars. The dollar figure is banned from the decision room.</li>
+        <li>R expresses exactly one thing: how much edge you believe is in front of you (the tier). The moment R becomes a lever to manufacture the size you want, the outcome is driving the risk input — backwards.</li>
+        <li>Geometric drawdown risk scales with risk as a % of AUM, not the dollar amount. 1% at a small account and 1% at a huge one are mathematically identical — the number only <em>looks</em> scarier.</li>
+        <li>Survival levers live outside per-trade R, on purpose: how much heat you'll carry at once (heat cap), and when you stop trading in a bad stretch (cold-streak brake). Never blend them into sizing.</li>
+        <li>What matters in the end: EV positive, how positive, whether you behave, and whether sizing keeps you in the game long enough for the math to work.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">II. Stops</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>The stop lives at invalidation — the price where the idea is plainly wrong. On volatile names that's often far wider than a "tight" stop, and the win rate holds <em>because</em> of the width.</li>
+        <li>Stops are never placed once, and move both ways: enter deliberately loose, ratchet in as price action confirms; if the name falls back into noise, widening back to honest invalidation is correct.</li>
+        <li>Once the stop is where it belongs, share count flexes to hold dollar risk at R — so "undersized" cannot happen. Feeling undersized at a logical stop is the mirror, not a sizing problem.</li>
+        <li>Never place a stop to defend a win rate. Win rate is an output — move it through the inputs (selection, stop logic, execution), never by protecting the number directly.</li>
+        <li>A canonized stop should never appear in your rearview mirror. If the setup called for a stop by now, it isn't the setup anymore.</li>
+        <li>Losses that "ran a little" — cut at 1.8R or 2.5R instead of the planned 1R — are quietly lethal to EV. The danger is rarely the catastrophe; it's the small trespass repeated.</li>
+        <li>Move a stop to breakeven only because something contextually changed in the market that makes the risk no longer worth carrying — never to feel safe or to avoid losing dollars. The goal once a trade works isn't to cover risk; it's to compound and press the winner as far as the market allows. Trade the chart, not your P/L.</li>
+        <li><b>Why width IS the win rate</b> (interpretation): your realized win rate is not your thesis win rate — it's the probability the setup resolves <em>before the stop gets touched</em>. A stop inside ordinary noise converts correct theses into losses; those losses carry zero information about your edge — they're manufactured by placement. Width at honest invalidation closes that gap, and R-sizing makes it free in dollars (wider stop → fewer shares → same 1R). What width costs in R-multiple, the ratchet restores: wide early when you need immunity, tight late when you need asymmetry — width and tightness are a <em>schedule</em>, not a choice.</li>
+        <li><b>The noise-stopout audit</b> (interpretation): tag every loss as <em>invalidation</em> (the thesis actually broke) or <em>noise stopout</em> (stopped, then the setup resolved without you). The system is engineered so the second category approaches zero. If your journal fills with noise stopouts, your stops are inside the noise and you are paying for tightness with your win rate. The ADR check (1.5+ daily ranges to the stop) is the pre-trade version of this audit.</li>
+        <li><b>The thesis dictates the width</b> (interpretation): stop distance is the thesis's own claim about path and speed, priced. A violent-move-<em>now</em> thesis carries its invalidation close — in price and in time — because if the move doesn't come fast, the idea is already wrong; honest tightness, and R-sizing hands you the larger size that goes with it (his defect-moment entries worked this way: the unhalt either repriced immediately or the read was dead). A destination-over-time thesis carries invalidation at distant structure — enter loose, take the smaller size, and let the ratchet and pyramid build the position as the path confirms. Width is never aggression or timidity. The test on every tight stop remains the honest question: is this where the idea is wrong — or where my desired size wants it to be?</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">III. Adds &amp; pyramiding</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>Constant-risk pyramiding: at every add, compute total target shares from the risk budget and the distance to the new stop; the add is target minus current. The focus is never increasing risk — it's keeping it the same while size grows.</li>
+        <li>Booked profit expands the budget: if 1R is $100 and you've banked $50 on the sequence, $150 now finances the next decision ("trading around a core" / recycling).</li>
+        <li>The add trigger is a price-based or time-based signal read from structure — never an impulse. Position placed, then: watch. Time brings information.</li>
+        <li>The standing heuristic mid-trade: what would I do if I had no position?</li>
+        <li>His confirmation of the full chain: no signal → no stop movement → no adds. Wait for the market's go-ahead; otherwise, wait. (And opening with smaller risk to test the waters is a legitimate stylistic choice — up to you.)</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">IV. Exits &amp; trims</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>Exit when the trade has actually worked — never because the P/L number got big enough to feel like a house. Dollar-discomfort is not a signal.</li>
+        <li>The wiggle rule for trims: ask, will this be at this price or better later? If you're confident the answer is yes, take a good amount off.</li>
+        <li>Exits are decided at entry and pre-placed. The good deaths are when price walks to your waiting exits; the disasters all start with holding an hour past what the plan said.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">V. Selection &amp; win rate</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>Win rate is engineered through selectivity. Trading everything that looks vaguely right mechanically lowers it; genuinely waiting for the setup that meets a high bar raises it. Patience is a win-rate lever.</li>
+        <li>Refusing wrong trades and giving right ones room are the same discipline seen from two ends: only take setups whose logical stop you can respect, then respect it wherever it sits.</li>
+        <li>Interrogate your filters — the best setup in the arsenal may be labeled "avoid." Binary categories (long/short, threat/safe) are inherited, not real.</li>
+        <li>Avoid Day One on parabolic movers. The rule that's easy to know and hard to obey.</li>
+        <li>Most setups are replicas with bloodlines. Build the database; know today's setup by its resemblance to the family album.</li>
+        <li>Labels and tags (from scanners, databases, conviction layers) are starting points, not verdicts — assigned by past-you or by software from a compressed rule. The chart in front of you is its own thing. Tools that label less are better than tools that label more.</li>
+        <li>The fix is a gradient, not abolition: categories stay useful — what has to go is their monopoly on the answer. In real time, replace the name with a question: what's actually here? (Volume, prior range, relative move, spread, time of day.)</li>
+        <li>His analysis stack, in his words: nothing fancy — price, volume, and pattern recognition. The edge is upstream of tooling.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">VI. Rides, discipline &amp; penalties</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>The heroic "insane ride" is never required. Every big drawdown-ride either ended worse than the process path, or produced a win that process would have produced anyway without the -20R detour. The ride is a tax paid for refusing to admit the entry was wrong — and the graveyard of traders who rode the same way is silent.</li>
+        <li>A trade is a commitment, not a prediction. Predictions adjusted along the way are unfalsifiable; commitments have hinges built in before entry.</li>
+        <li>Build the penalty into the process before the market charges you a worse one. Deadlines without teeth are suggestions. Hard now, or harder later.</li>
+        <li>Discipline's end state is the "state of grace": enough reps with enough consequences that the right thing stops being the hard thing. Both error and mastery are thoughtless technique — the difference is which master they serve.</li>
+        <li>Holding through the second half of a trade because you held through the first half is not a thesis.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary style="font-weight:600;color:var(--accent);">VII. The mirror &amp; the feedback loop</summary>
+      <ol style="font-size:13px;color:var(--sub);line-height:1.7;margin:8px 0;padding-left:22px;">
+        <li>Re-trade reviews: run finished trades back through Cal and compare the optimal decision path to what you actually did, at every decision point. The gaps are the curriculum.</li>
+        <li>An unjournaled decision is a conversation you're avoiding with yourself — and journal entries that measure nothing about your intention to change teach nothing. Dodo-bird journaling ("good day today!") is blindness with a diary.</li>
+        <li>Feedback loops must exist before the regime change: logged trades, tracked metrics, regular review. The mind protects its models; the architecture has to out-vote it.</li>
+        <li>Measure the unrealized parameters of your system, not just realized results. A high win rate can be ruin sleeping in the next room.</li>
+        <li>Crowds infect, they don't instruct. Build in silence; the edge lives in stores of work — the databases, journals, and tagged screenshots no one will ever see.</li>
+        <li>Watch what happens in you when the process feels uncomfortable. That discomfort is information about you, not about the trade. The market hands you the size you deserve.</li>
+        <li>Audit your labels in review: sit with a traded chart and ask where a name foreclosed a possibility — where "breakout" stopped you from seeing, where "avoid" made you miss the long. The backward work bleeds forward; you can't refuse to name a chart in real time, but you can audit the naming afterward. You never reach unmediated seeing — you build a working relationship with a filter you can't turn off.</li>
+        <li>Stay skeptical of your own edge — he never fully believed in his. The variables (timing, neurology, regime) are too entangled to separate, and at some point the skepticism stops being a problem and becomes the most honest position available. There was also never a moment the searching "ended": the signal just got too loud to rationalize away.</li>
+      </ol>
+    </details>
+    <p class="hint" style="margin-top:10px;">Sources: the memoir parts <a href="https://simon-russo.com/memoir/craft-is-cathedral" style="color:var(--accent);">1</a>, <a href="https://simon-russo.com/memoir/one-becoming" style="color:var(--accent);">2</a>, <a href="https://simon-russo.com/memoir/forswear-the-filter" style="color:var(--accent);">3</a>, <a href="https://simon-russo.com/memoir/giant-steps" style="color:var(--accent);">4</a>, <a href="https://simon-russo.com/memoir/the-rest" style="color:var(--accent);">5</a>, <a href="https://simon-russo.com/memoir/markets-are-mirrors" style="color:var(--accent);">6</a>, and his replies in the comment sections of Parts 1, 2, and 3 (Parts 4–6 have no author replies as of Aug 2026).</p>
+  </div>
+
+  <div class="card">
+    <details><summary>Export / import data</summary>
+      <div class="row" style="margin:10px 0;">
+        <button class="small" id="exportBtn">Export to text box</button>
+        <button class="small" id="importBtn">Import from text box</button>
+        <span class="err" id="io_err"></span>
+      </div>
+      <textarea id="io" spellcheck="false"></textarea>
+    </details>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script>
+"use strict";
+const TIER_NAMES = ["A+","A","B"];
+let root = null;
+let state = null;
+let charts = [];
+
+function defaults(){ return { settings:{ aum:100000, rPct:1, tiers:[2,1,0.5], compound:true, finnhub:"", heatCap:5, coldR:3, sizeMode:"r" }, trades:[] }; }
+function newRoot(){ return { active:"trading", portfolios:{ trading:defaults(), main:defaults() } }; }
+function load(){
+  try{
+    const raw=localStorage.getItem("cal-v1");
+    const p = raw? JSON.parse(raw) : null;
+    if(!p) root=newRoot();
+    else if(p.portfolios && p.active) root=p;
+    else if(p.settings && p.trades) root={ active:"trading", portfolios:{ trading:p, main:defaults() } };
+    else root=newRoot();
+  }catch(e){ root=newRoot(); }
+  if(!root.portfolios.trading) root.portfolios.trading=defaults();
+  if(!root.portfolios.main) root.portfolios.main=defaults();
+  if(!root.portfolios[root.active]) root.active="trading";
+  Object.values(root.portfolios).forEach(pf=>{
+    if(!pf.settings) pf.settings=defaults().settings;
+    if(pf.settings.heatCap==null) pf.settings.heatCap=5;
+    if(pf.settings.coldR==null) pf.settings.coldR=3;
+    if(!pf.settings.sizeMode) pf.settings.sizeMode="r";
+    if(!pf.trades) pf.trades=[];
+    pf.trades.forEach(t=>{ if(!t.lastMarkTs) t.lastMarkTs=t.createdAt||Date.now(); });
+  });
+  state = root.portfolios[root.active];
+}
+function save(){ try{ localStorage.setItem("cal-v1", JSON.stringify(root)); }catch(e){} }
+window.switchPortfolio = name => {
+  if(!root.portfolios[name] || root.active===name) return;
+  root.active=name; state=root.portfolios[name]; save(); render();
+};
+
+const fmt$ = v => (v<0?"-":"") + "$" + Math.abs(v).toLocaleString(undefined,{maximumFractionDigits: Math.abs(v)>=1000?0:2});
+const fmtR = v => (v>0?"+":"") + v.toFixed(2) + "R";
+const fmtQ = v => Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});
+const fmtP = v => "$" + Number(v).toLocaleString(undefined,{maximumFractionDigits:4});
+const cls = v => v>0.0001?"pos":(v<-0.0001?"neg":"");
+const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function rUnitNow(){ return state.settings.aum * state.settings.rPct / 100; }
+function markAgeHtml(t){
+  if(!t.lastMarkTs) return "";
+  const h=(Date.now()-t.lastMarkTs)/36e5;
+  if(h<24) return "";
+  const dstr = h<48? Math.round(h)+"h" : Math.round(h/24)+"d";
+  const col = h>72? "var(--red)" : "var(--amber)";
+  return ` <span style="color:${col}">· marked ${dstr} ago</span>`;
+}
+
+function derive(t){
+  let Q=0, avg=0, realized=0, stop=null, mult=t.mult;
+  const series=[];
+  for(const e of t.events){
+    if(e.type==="budget"){ mult=e.mult; }
+    if(e.type==="entry"||e.type==="add"){
+      avg = Q+e.qty>0 ? (avg*Q + e.price*e.qty)/(Q+e.qty) : e.price;
+      Q += e.qty;
+      if(e.stop!=null) stop=e.stop;
+    } else if(e.type==="trim"||e.type==="close"){
+      const q=Math.min(e.qty,Q);
+      realized += t.side*(e.price-avg)*q;
+      Q -= q;
+    } else if(e.type==="stop"){ stop=e.stop; }
+    else if(e.type==="adjust"){ if(e.qty!=null) Q=e.qty; if(e.price!=null) avg=e.price; if(e.stop!=null) stop=e.stop; }
+    const mark = e.price!=null? e.price : (series.length? series[series.length-1].mark : avg);
+    series.push({ label:e.type, mark, val:(realized + t.side*(mark-avg)*Q) / t.rUnit });
+  }
+  return {Q,avg,realized,stop,series,mult};
+}
+function budget(t,d){ return t.rUnit * (d&&d.mult!=null? d.mult : t.mult); }
+function riskAtStop(t,d){ return d.stop==null||d.Q<=0 ? 0 : t.side*(d.avg-d.stop)*d.Q; }
+function maxAdd(t,d,Pa,S){
+  const den = t.side*(Pa-S);
+  if(!(den>0)) return {ok:false, msg:"Stop must be on the risk side of the add price."};
+  const b = state.settings.sizeMode==="be" ? 0 : budget(t,d);
+  const q = (b + d.realized - t.side*(d.avg-S)*d.Q) / den;
+  return {ok:true, q:Math.max(0,Math.floor(q))};
+}
+function modeLabel(t,d){ return state.settings.sizeMode==="be" ? "breakeven (0R)" : (d&&d.mult!=null?d.mult:t.mult)+"R"; }
+window.setSizeMode = m => { state.settings.sizeMode=m; save(); render(); };
+function freshSize(t,d,P,S){
+  const den = t.side*(P-S);
+  if(!(den>0)) return null;
+  return Math.floor(budget(t,d)/den);
+}
+function beStop(t,d){ return d.Q>0 ? d.avg - t.side*d.realized/d.Q : null; }
+
+function renderSettings(){
+  const s=state.settings;
+  aum.value="$"+s.aum.toLocaleString(undefined,{maximumFractionDigits:0}); rpct.value=s.rPct; t0.value=s.tiers[0]; t1.value=s.tiers[1]; t2.value=s.tiers[2];
+  compound.value = s.compound?"1":"0";
+  fhkey.value = s.finnhub||"";
+  heatcap.value = s.heatCap; coldr.value = s.coldR;
+  runitBox.innerHTML = "1R = " + fmt$(rUnitNow()) + " <small>(" + s.rPct + "% of " + fmt$(s.aum) + ")</small>";
+  const tierSel = nt_tier.value!==""? nt_tier.value : "1";
+  nt_tier.innerHTML = TIER_NAMES.map((n,i)=>`<option value="${i}"${i===parseInt(tierSel)?" selected":""}>${n} — ${s.tiers[i]}R (${fmt$(rUnitNow()*s.tiers[i])})</option>`).join("");
+}
+
+function newTradeCal(){
+  const P=parseFloat(nt_entry.value), S=parseFloat(nt_stop.value), side=parseInt(nt_side.value), ti=parseInt(nt_tier.value)||0;
+  nt_err.textContent="";
+  if(isNaN(P)||isNaN(S)){ nt_calbox.style.display="none"; return null; }
+  const den = side*(P-S);
+  if(!(den>0)){ nt_calbox.style.display="none"; nt_err.textContent="Stop must be below entry for longs, above entry for shorts."; return null; }
+  const customR = parseFloat(nt_rb.value);
+  const multEff = (!isNaN(customR)&&customR>0)? customR : state.settings.tiers[ti];
+  const b = rUnitNow()*multEff;
+  const q = Math.floor(b/den);
+  nt_calbox.style.display="block";
+  nt_calans.textContent = fmtQ(q) + " shares";
+  nt_calsub.textContent = "Risk per share " + fmt$(den) + " · budget " + multEff + "R = " + fmt$(b) + ((!isNaN(customR)&&customR>0)?" (custom — upsize later via Risk budget on the trade)":"") + " · position value " + fmt$(q*P);
+  const adr = parseFloat(nt_adr.value);
+  if(!isNaN(adr)&&adr>0){
+    const adrD = P*adr/100, adrs = den/adrD, pctOfGap = adrD/den*100;
+    const col = adrs<1? "var(--red)" : (adrs<1.5? "var(--amber)" : "var(--green)");
+    let vol = `<span style="color:${col};font-weight:600;">Daily vol check: ADR ${adr}% (${fmt$(adrD)}) = ${Math.round(pctOfGap)}% of your stop gap — stop is ${adrs.toFixed(1)} ADRs away.</span>`;
+    if(adrs<1.5){
+      const safeStop = P - side*1.5*adrD;
+      const safeQ = Math.floor(b/(1.5*adrD));
+      vol += ` One normal day covers ${pctOfGap>=100?"MORE than your whole stop":"most of your stop"} — shakeout risk. For 1.5 ADRs of room: stop ${fmtP(safeStop)}, size becomes ${fmtQ(safeQ)} shares (same ${state.settings.tiers[ti]}R risk).`;
+    } else {
+      vol += ` Normal daily noise shouldn't reach your stop.`;
+    }
+    nt_vol.innerHTML = vol;
+    nt_vol.style.display = "block";
+  } else {
+    nt_vol.innerHTML = `<span style="color:var(--mut)">Enter ADR % to check your stop against daily volatility before committing.</span>`;
+  }
+  return q;
+}
+
+function openTrade(){
+  const tk=nt_tk.value.trim().toUpperCase();
+  const P=parseFloat(nt_entry.value), S=parseFloat(nt_stop.value), side=parseInt(nt_side.value), ti=parseInt(nt_tier.value)||0;
+  const calQ = newTradeCal();
+  const q = nt_qty.value? parseFloat(nt_qty.value) : calQ;
+  if(!tk){ nt_err.textContent="Enter a ticker first."; return; }
+  if(calQ==null){ if(!nt_err.textContent) nt_err.textContent="Enter a valid entry and stop first."; return; }
+  if(!q || q<=0){ nt_err.textContent="Share quantity must be positive."; return; }
+  state.trades.unshift({
+    id: Date.now()+""+Math.floor(Math.random()*1e4),
+    ticker:tk, side, concept:nt_concept.value.trim(), tier:ti,
+    mult:(function(){const c=parseFloat(nt_rb.value); return !isNaN(c)&&c>0? c : state.settings.tiers[ti];})(),
+    adr: (function(){const a=parseFloat(nt_adr.value); return !isNaN(a)&&a>0?a:null;})(),
+    rUnit: rUnitNow(), status:"open", last:P,
+    events:[{type:"entry", qty:q, price:P, stop:S, ts:Date.now()}],
+    createdAt:Date.now()
+  });
+  nt_tk.value=nt_concept.value=nt_entry.value=nt_stop.value=nt_qty.value=nt_rb.value="";
+  nt_calbox.style.display="none";
+  save(); render();
+}
+
+function tradeCard(t){
+  const d=derive(t);
+  const ras=riskAtStop(t,d);
+  const openPL = t.side*(t.last-d.avg)*d.Q;
+  const seq = ras - d.realized;
+  const be = beStop(t,d);
+  const fresh = d.stop!=null? freshSize(t,d,t.last,d.stop) : null;
+  const target1R = d.Q>0? d.avg + t.side*budget(t,d)/d.Q : null;
+  const R = t.rUnit;
+  const house = seq<=0.0001 && d.Q>0;
+  const e0 = t.events.find(e=>e.type==="entry");
+  const riskPS = (e0 && e0.stop!=null)? t.side*(e0.price-e0.stop) : null;
+  const hasTrim = t.events.some(e=>e.type==="trim");
+  let trail=null, trailNote="";
+  if(hasTrim && riskPS!=null && riskPS>0 && d.Q>0){
+    trail = t.last - t.side*riskPS;
+    const tighter = d.stop==null || t.side*(trail-d.stop)>0;
+    const seqAtTrail = t.side*(d.avg-trail)*d.Q - d.realized;
+    trailNote = tighter
+      ? `1R trail from ${fmtP(t.last)}: <b>${fmtP(trail)}</b> (1R/share = ${fmt$(riskPS)}, from your original entry risk). ${seqAtTrail<=0? `At that stop the sequence <b>locks ${fmtR(-seqAtTrail/R)}</b> — worst case is a win.` : `At that stop the sequence still risks ${fmtR(seqAtTrail/R).replace("+","")}.`}`
+      : `1R trail would be ${fmtP(trail)} — your current stop ${fmtP(d.stop)} is already tighter. The trail never auto-loosens; but if the name has fallen back into noise and honest invalidation now sits wider, widening the stop via Move is a legitimate, logged decision (size stays governed by the sequence budget).`;
+  }
+  let adrHtml = `<div class="metric"><div class="k">Daily vol check</div><div class="v" style="color:var(--mut)">—</div><div class="r">set ADR% below</div></div>`;
+  if(t.adr && d.stop!=null && d.Q>0){
+    const adrD = t.last*t.adr/100;
+    const dist = t.side*(t.last-d.stop);
+    if(dist>0){
+      const adrs = dist/adrD, pct = adrD/dist*100;
+      const col = adrs<1? "var(--red)" : (adrs<1.5? "var(--amber)" : "var(--green)");
+      adrHtml = `<div class="metric"><div class="k">Daily vol check</div><div class="v" style="color:${col}">${adrs.toFixed(1)} ADRs</div><div class="r">ADR ${t.adr}% (${fmt$(adrD)}) = ${Math.round(pct)}% of stop dist${adrs<1?" — inside 1 day's range":""}</div></div>`;
+    } else {
+      adrHtml = `<div class="metric"><div class="k">Daily vol check</div><div class="v neg">stop breached</div><div class="r">last is past the stop</div></div>`;
+    }
+  }
+  const rows = t.events.map(e=>{
+    let det="";
+    if(e.type==="entry"||e.type==="add") det=fmtQ(e.qty)+" @ "+fmtP(e.price)+(e.stop!=null?" · stop "+fmtP(e.stop):"");
+    else if(e.type==="trim"||e.type==="close") det=fmtQ(e.qty)+" @ "+fmtP(e.price);
+    else if(e.type==="stop") det="→ "+fmtP(e.stop);
+    else if(e.type==="adjust") det=[e.qty!=null?"pos → "+fmtQ(e.qty):null, e.price!=null?"avg → "+fmtP(e.price):null, e.stop!=null?"stop → "+fmtP(e.stop):null].filter(Boolean).join(" · ");
+    else if(e.type==="budget") det="risk → "+e.mult+"R";
+    return `<tr><td>${new Date(e.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</td><td>${e.type}</td><td>${det}</td></tr>`;
+  }).join("");
+  const totR = (d.realized+openPL)/R;
+  const head = `<div class="tradehead">
+      <button class="small" style="padding:2px 9px;" onclick="toggleCard('${t.id}')" title="${t.collapsed?"Expand":"Collapse"}">${t.collapsed?"&#9656;":"&#9662;"}</button>
+      ${!t.collapsed?`<button class="small" style="padding:2px 9px;" onclick="undoEvent('${t.id}')" title="Undo last event">&#8630;</button><button class="small danger" style="padding:2px 9px;" onclick="deleteTrade('${t.id}')" title="Delete this trade entirely">&#10005;</button>`:""}
+      <span class="tk">${esc(t.ticker)}</span>
+      <span class="pill ${t.side>0?"long":"short"}">${t.side>0?"LONG":"SHORT"}</span>
+      <span class="pill tier">${TIER_NAMES[t.tier]} · ${d.mult}R budget${d.mult!==t.mult?" (opened "+t.mult+"R)":""}</span>
+      ${d.Q>0? `<span class="pill ${house?"house":"atrisk"}">${house?"house money — sequence can’t lose":"sequence at risk: "+fmt$(Math.max(0,seq))}</span>`:""}
+      ${t.collapsed? `<span class="muted" style="font-family:var(--mono);">${fmtQ(d.Q)} @ ${fmtP(d.avg)} · last ${fmtP(t.last)} · stop ${d.stop!=null?fmtP(d.stop):"—"}</span><span class="${cls(totR)}" style="font-family:var(--mono);font-weight:600;">${fmtR(totR)}</span>`:""}
+      <span class="muted" style="margin-left:auto;">${esc(t.concept)} · 1R = ${fmt$(R)}</span>
+    </div>`;
+  if(t.collapsed) return `<div class="card" data-id="${t.id}" style="padding:12px 20px;">${head}</div>`;
+  return `<div class="card" data-id="${t.id}">
+    ${head}
+    <div class="grid">
+      <div class="metric"><div class="k">Position</div><div class="v">${fmtQ(d.Q)}</div><div class="r">avg ${fmtP(d.avg)}</div></div>
+      <div class="metric"><div class="k">Stop</div><div class="v">${d.stop!=null?fmtP(d.stop):"—"}</div><div class="r">${be!=null?"b/e stop "+fmtP(be):""}</div></div>
+      <div class="metric"><div class="k">Last price</div><div class="v">${fmtP(t.last)}</div><div class="r">${target1R!=null?"+1R at "+fmtP(target1R):""}${markAgeHtml(t)}</div></div>
+      <div class="metric"><div class="k">Open P/L</div><div class="v ${cls(openPL)}">${fmt$(openPL)}</div><div class="r">${fmtR(openPL/R)}</div></div>
+      <div class="metric"><div class="k">Realized</div><div class="v ${cls(d.realized)}">${fmt$(d.realized)}</div><div class="r">${fmtR(d.realized/R)}</div></div>
+      <div class="metric"><div class="k">Loss if stopped</div><div class="v ${cls(-ras)}">${fmt$(-ras)}</div><div class="r">${fmtR(-ras/R)} open</div></div>
+      <div class="metric"><div class="k">Sequence at stop</div><div class="v ${cls(-seq)}">${fmt$(-seq)}</div><div class="r">realized − stop risk</div></div>
+      <div class="metric"><div class="k">Total (mark)</div><div class="v ${cls(d.realized+openPL)}">${fmt$(d.realized+openPL)}</div><div class="r">${fmtR((d.realized+openPL)/R)}</div></div>
+      ${adrHtml}
+    </div>
+    <div class="calbox">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+        <div class="head" style="margin-bottom:0;">CAL SAYS</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="muted" style="font-size:11px;">worst case:</span>
+          <button class="small ${state.settings.sizeMode!=="be"?"primary":""}" onclick="setSizeMode('r')" title="Size adds so the sequence's worst case is your full R budget (banked profit + 1R finances size)">1R</button>
+          <button class="small ${state.settings.sizeMode==="be"?"primary":""}" onclick="setSizeMode('be')" title="Size adds so the sequence's worst case is breakeven — only banked profit finances size; a stop-out nets $0">B/E</button>
+        </div>
+      </div>
+      ${(function(){
+        if(d.stop==null || d.Q<=0) return `<div class="calsub">Set a stop to see your available add.</div>`;
+        const lm = maxAdd(t,d,t.last,d.stop);
+        if(!lm.ok) return `<div class="calsub">${lm.msg}</div>`;
+        const beMode = state.settings.sizeMode==="be";
+        return lm.q>0
+          ? `<div class="calans">Max add right now: ${fmtQ(lm.q)} sh @ ${fmtP(t.last)}</div>
+             <div class="calsub">At the current stop ${fmtP(d.stop)}, adding this keeps the whole sequence's worst case ≤ ${beMode?"<b>breakeven</b> — a stop-out nets $0; only banked profit is at work":d.mult+"R"}. <b>Tighten the stop (on signal) and this number grows</b> — the stop move is what re-sizes your risk.</div>`
+          : `<div class="calans">Max add right now: 0 sh</div>
+             <div class="calsub">${beMode? `No banked cushion beyond the current stop risk — in B/E mode there's nothing to spend. Bank profit (trim) or tighten the stop first.` : `The position consumes the full ${d.mult}R budget at stop ${fmtP(d.stop)}. No signal → no stop move → no add. Tighten on structure, trim, or upsize the R budget (on breakout) to free size.`}</div>`;
+      })()}
+      <div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);" id="calmsg_${t.id}">Different add price? Type a price (and optional new stop) in the Add box — the max recomputes live. Fresh size if you had no position at ${fmtP(t.last)}: <b>${fresh!=null?fmtQ(fresh)+" shares":"—"}</b>.</div>
+      ${trailNote?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${trailNote}</div>`:""}
+    </div>
+    <div class="actions">
+      <div class="action"><div class="t">Mark / last price</div><div class="row">
+        <input type="number" step="any" id="px_${t.id}" placeholder="${t.last}" onkeydown="if(event.key==='Enter')setLast('${t.id}')">
+        <button class="small" onclick="setLast('${t.id}')">Set</button></div></div>
+      <div class="action"><div class="t">Add</div><div class="row">
+        <input type="number" step="any" id="addp_${t.id}" placeholder="price" oninput="liveAdd('${t.id}')" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
+        <input type="number" step="any" id="adds_${t.id}" placeholder="new stop" oninput="liveAdd('${t.id}')" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
+        <input type="number" step="any" id="addq_${t.id}" placeholder="qty (Cal)" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
+        <button class="small primary" onclick="doAdd('${t.id}')">Add</button></div>
+        <div class="err" id="adderr_${t.id}"></div></div>
+      <div class="action"><div class="t">Trim / take profit</div><div class="row">
+        <input type="number" step="any" id="trp_${t.id}" placeholder="price" onkeydown="if(event.key==='Enter')doTrim('${t.id}',null)">
+        <input type="number" step="any" id="trq_${t.id}" placeholder="qty" onkeydown="if(event.key==='Enter')doTrim('${t.id}',null)">
+        <button class="small" onclick="doTrim('${t.id}',0.25)">25% (${fmtQ(Math.floor(d.Q*0.25))})</button>
+        <button class="small" onclick="doTrim('${t.id}',0.5)">50% (${fmtQ(Math.floor(d.Q*0.5))})</button>
+        <button class="small primary" onclick="doTrim('${t.id}',null)">Trim</button></div>
+        <div class="err" id="trerr_${t.id}"></div></div>
+      <div class="action"><div class="t">Stop &amp; vol</div><div class="row">
+        <input type="number" step="any" id="stp_${t.id}" placeholder="${d.stop!=null?d.stop:"stop"}" onkeydown="if(event.key==='Enter')moveStop('${t.id}')">
+        <button class="small" onclick="moveStop('${t.id}')">Move</button>
+        ${be!=null?`<button class="small" onclick="stp_${t.id}.value=${be.toFixed(4)};moveStop('${t.id}')">B/E</button>`:""}
+        ${(trail!=null && (d.stop==null || t.side*(trail-d.stop)>0))?`<button class="small" title="Trail stop 1R behind last price" onclick="stp_${t.id}.value=${trail.toFixed(4)};moveStop('${t.id}')">1R trail</button>`:""}
+        <input type="number" step="0.1" id="adr_${t.id}" placeholder="${t.adr!=null?t.adr+"%":"ADR %"}" style="width:70px">
+        <button class="small" onclick="setAdr('${t.id}')">Set</button></div>
+        <div class="muted" style="margin-top:5px;">Signal → Move stop → "Max add right now" updates above.</div></div>
+      <div class="action"><div class="t">Risk budget (R)</div><div class="row">
+        <input type="number" step="0.05" id="rb_${t.id}" placeholder="${d.mult}R now" style="width:70px" onkeydown="if(event.key==='Enter')setBudget('${t.id}')">
+        <button class="small" onclick="rb_${t.id}.value=0.25;setBudget('${t.id}')">.25</button>
+        <button class="small" onclick="rb_${t.id}.value=0.5;setBudget('${t.id}')">.5</button>
+        <button class="small" onclick="rb_${t.id}.value=1;setBudget('${t.id}')">1</button>
+        <button class="small" onclick="rb_${t.id}.value=2;setBudget('${t.id}')">2</button>
+        <button class="small primary" onclick="setBudget('${t.id}')">Set</button></div>
+        <div class="err" id="rberr_${t.id}"></div>
+        <div class="muted" style="margin-top:5px;">Start small, upsize on further breakouts — Max add recomputes to the new budget. Logged.</div></div>
+      <div class="action"><div class="t">Close all</div><div class="row">
+        <input type="number" step="any" id="clp_${t.id}" placeholder="price" onkeydown="if(event.key==='Enter')closeTrade('${t.id}')">
+        <button class="small danger" onclick="closeTrade('${t.id}')">Close</button></div>
+        <div class="err" id="clerr_${t.id}"></div></div>
+      <div class="action"><div class="t">Adjust (override)</div><div class="row">
+        <input type="number" step="any" id="ajq_${t.id}" placeholder="${fmtQ(d.Q)} sh" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+        <input type="number" step="any" id="aja_${t.id}" placeholder="avg ${fmtP(d.avg)}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+        <input type="number" step="any" id="ajs_${t.id}" placeholder="${d.stop!=null?"stop "+fmtP(d.stop):"stop"}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+        <button class="small" onclick="doAdjust('${t.id}')">Apply</button></div>
+        <div class="err" id="ajerr_${t.id}"></div></div>
+    </div>
+    <div class="chartbox"><canvas id="ch_${t.id}"></canvas></div>
+    <details style="margin-top:10px;"><summary>Event log (${t.events.length})</summary>
+      <table><tr><th>Date</th><th>Event</th><th>Detail</th></tr>${rows}</table></details>
+  </div>`;
+}
+
+function getTrade(id){ return state.trades.find(t=>t.id===id); }
+window.setLast = id => { const t=getTrade(id); const v=parseFloat(document.getElementById("px_"+id).value); if(t&&!isNaN(v)&&v>0){ t.last=v; t.lastMarkTs=Date.now(); save(); render(); } };
+window.liveAdd = id => {
+  const t=getTrade(id), d=derive(t);
+  const Pa=parseFloat(document.getElementById("addp_"+id).value);
+  let S=parseFloat(document.getElementById("adds_"+id).value);
+  const errEl=document.getElementById("adderr_"+id);
+  if(isNaN(S)) S=d.stop;
+  if(isNaN(Pa)||S==null){ errEl.textContent=""; return; }
+  const r=maxAdd(t,d,Pa,S);
+  if(!r.ok){ errEl.textContent=r.msg; return; }
+  errEl.textContent="";
+  document.getElementById("addq_"+id).placeholder=r.q+" (Cal max)";
+  document.getElementById("calmsg_"+id).innerHTML = "Max add at "+fmtP(Pa)+" with stop "+fmtP(S)+": <b>"+fmtQ(r.q)+" shares</b> — sequence worst case at that stop stays ≤ "+modeLabel(t,d)+". "+(r.q===0?"Zero: nothing to spend at this stop in the current mode — tighten the stop or trim first.":"Leave qty blank and hit Add to take Cal's max.");
+};
+window.doAdd = id => {
+  const t=getTrade(id), d=derive(t);
+  const Pa=parseFloat(document.getElementById("addp_"+id).value);
+  let S=parseFloat(document.getElementById("adds_"+id).value);
+  let q=parseFloat(document.getElementById("addq_"+id).value);
+  const errEl=document.getElementById("adderr_"+id);
+  if(isNaN(S)) S=d.stop;
+  if(isNaN(Pa)){ errEl.textContent="Enter an add price."; return; }
+  if(isNaN(q)){
+    if(S==null){ errEl.textContent="Enter a stop (no current stop to inherit)."; return; }
+    const r=maxAdd(t,d,Pa,S);
+    if(!r.ok){ errEl.textContent=r.msg; return; }
+    if(r.q<=0){ errEl.textContent="Cal max is 0 at this stop — no add available. Tighten the stop or trim first."; return; }
+    q=r.q;
+  }
+  if(q<=0){ errEl.textContent="Quantity must be positive."; return; }
+  t.events.push({type:"add", qty:q, price:Pa, stop:(S==null||isNaN(S))?null:S, ts:Date.now()});
+  t.last=Pa; t.lastMarkTs=Date.now(); save(); render();
+};
+window.undoEvent = id => {
+  const t=getTrade(id);
+  if(!t) return;
+  if(t.events.length<=1){ alert("Only the opening entry remains — delete the trade from Closed (after closing) or re-open a fresh one if this was a mistake."); return; }
+  const e=t.events[t.events.length-1];
+  const desc=e.type+(e.qty!=null?" "+fmtQ(e.qty):"")+(e.price!=null?" @ "+fmtP(e.price):"")+(e.stop!=null?" · stop "+fmtP(e.stop):"");
+  if(!confirm("Undo last event ("+desc+")? This removes it from the log.")) return;
+  t.events.pop(); save(); render();
+};
+window.collapseAll = v => { state.trades.forEach(t=>{ if(t.status==="open") t.collapsed=v; }); save(); render(); };
+window.doTrim = (id,frac) => {
+  const t=getTrade(id), d=derive(t);
+  const errEl=document.getElementById("trerr_"+id);
+  let P=parseFloat(document.getElementById("trp_"+id).value);
+  if(isNaN(P)) P=t.last;
+  let q = frac!=null? Math.floor(d.Q*frac) : parseFloat(document.getElementById("trq_"+id).value);
+  if(isNaN(q)||q<=0){ errEl.textContent="Enter a quantity (or use 25% / 50%)."; return; }
+  if(q>d.Q) q=d.Q;
+  t.events.push({type:"trim", qty:q, price:P, ts:Date.now()});
+  t.last=P; t.lastMarkTs=Date.now(); save(); render();
+};
+window.setAdr = id => {
+  const t=getTrade(id);
+  const v=parseFloat(document.getElementById("adr_"+id).value);
+  if(t&&!isNaN(v)&&v>0){ t.adr=v; save(); render(); }
+};
+window.setBudget = id => {
+  const t=getTrade(id), d=derive(t);
+  const v=parseFloat(document.getElementById("rb_"+id).value);
+  const errEl=document.getElementById("rberr_"+id);
+  if(isNaN(v)||v<=0){ if(errEl) errEl.textContent="Enter a positive R multiple (e.g., 0.25, 0.5, 1)."; return; }
+  if(v===d.mult){ if(errEl) errEl.textContent="Budget is already "+v+"R."; return; }
+  t.events.push({type:"budget", mult:v, price:t.last, ts:Date.now()});
+  save(); render();
+};
+window.moveStop = id => {
+  const t=getTrade(id);
+  const v=parseFloat(document.getElementById("stp_"+id).value);
+  if(isNaN(v)) return;
+  t.events.push({type:"stop", stop:v, price:t.last, ts:Date.now()});
+  save(); render();
+};
+window.toggleCard = id => {
+  const t=getTrade(id);
+  if(t){ t.collapsed=!t.collapsed; save(); render(); }
+};
+window.doAdjust = id => {
+  const t=getTrade(id);
+  const q=parseFloat(document.getElementById("ajq_"+id).value);
+  const a=parseFloat(document.getElementById("aja_"+id).value);
+  const s=parseFloat(document.getElementById("ajs_"+id).value);
+  const errEl=document.getElementById("ajerr_"+id);
+  if(isNaN(q)&&isNaN(a)&&isNaN(s)){ errEl.textContent="Enter at least one value — blank fields keep their current value."; return; }
+  if(!isNaN(q)&&q<0){ errEl.textContent="Position size can't be negative (side is set on the trade)."; return; }
+  t.events.push({type:"adjust", qty:isNaN(q)?null:q, price:isNaN(a)?null:a, stop:isNaN(s)?null:s, ts:Date.now()});
+  save(); render();
+};
+window.saveNote = id => {
+  const t=getTrade(id);
+  const ta=document.getElementById("note_"+id);
+  if(!t||!ta) return;
+  t.notes = ta.value.trim();
+  save();
+  const st=document.getElementById("notest_"+id);
+  if(st){ st.textContent="Saved "+new Date().toLocaleTimeString(); setTimeout(()=>{ if(st) st.textContent=""; }, 3000); }
+};
+window.toggleLog = id => {
+  const row=document.getElementById("log_"+id), btn=document.getElementById("tgl_"+id);
+  if(!row) return;
+  const open = row.style.display!=="none";
+  row.style.display = open? "none":"table-row";
+  if(btn) btn.innerHTML = open? "&#9656;":"&#9662;";
+};
+window.deleteTrade = id => {
+  const t=getTrade(id);
+  if(!t) return;
+  if(!confirm("Delete "+t.ticker+" permanently? This removes the trade and its full event log"+(t.status==="closed"?" from the journal and stats":"")+". (AUM is not adjusted.)")) return;
+  state.trades = state.trades.filter(x=>x.id!==id);
+  save(); render();
+};
+window.closeTrade = id => {
+  const t=getTrade(id), d=derive(t);
+  let P=parseFloat(document.getElementById("clp_"+id).value);
+  const errEl=document.getElementById("clerr_"+id);
+  if(isNaN(P)){ errEl.textContent="Enter the exit price."; return; }
+  if(d.Q>0) t.events.push({type:"close", qty:d.Q, price:P, ts:Date.now()});
+  t.status="closed"; t.closedAt=Date.now(); t.last=P; t.lastMarkTs=Date.now();
+  const fin=derive(t);
+  if(state.settings.compound){ state.settings.aum = Math.round((state.settings.aum + fin.realized)*100)/100; }
+  save(); render();
+};
+
+window.toggleClosed = () => {
+  state.settings.closedCollapsed = !state.settings.closedCollapsed;
+  save(); render();
+};
+function renderClosed(){
+  const closed = state.trades.filter(t=>t.status==="closed");
+  const collapsed = !!state.settings.closedCollapsed;
+  const body=document.getElementById("closedBody"), tgl=document.getElementById("closedTgl"), sum=document.getElementById("closedSummary");
+  body.style.display = collapsed? "none":"block";
+  tgl.innerHTML = collapsed? "&#9656;":"&#9662;";
+  if(sum){
+    if(collapsed && closed.length){
+      const totR = closed.reduce((s,t)=>s+derive(t).realized/t.rUnit,0);
+      sum.innerHTML = closed.length+" trades · <span class='"+cls(totR)+"'>"+fmtR(totR)+"</span>";
+    } else sum.textContent = "";
+  }
+  if(collapsed) return;
+  const el=document.getElementById("closedTbl");
+  if(!closed.length){ el.innerHTML="<tr><td class='muted'>No closed trades yet.</td></tr>"; stats.innerHTML=""; return; }
+  let tot=0, wins=0, wr=0, lr=0, wn=0, ln=0;
+  const rms=[]; let worst=0, discOK=0;
+  const rows=closed.map(t=>{
+    const d=derive(t); const rm=d.realized/t.rUnit; tot+=rm; rms.push(rm);
+    if(rm>0){wins++; wr+=rm; wn++;} else {lr+=rm; ln++; if(rm<worst) worst=rm; if(rm>=-1.2) discOK++;}
+    let Q2=0, avg2=0, real2=0;
+    const evRows = t.events.map(e=>{
+      let det="";
+      if(e.type==="entry"||e.type==="add"){ avg2 = Q2+e.qty>0?(avg2*Q2+e.price*e.qty)/(Q2+e.qty):e.price; Q2+=e.qty; det=fmtQ(e.qty)+" @ "+fmtP(e.price)+(e.stop!=null?" · stop "+fmtP(e.stop):""); }
+      else if(e.type==="trim"||e.type==="close"){ const q=Math.min(e.qty,Q2); real2+=t.side*(e.price-avg2)*q; Q2-=q; det=fmtQ(e.qty)+" @ "+fmtP(e.price); }
+      else if(e.type==="stop"){ det="→ "+fmtP(e.stop); }
+      else if(e.type==="adjust"){ if(e.qty!=null) Q2=e.qty; if(e.price!=null) avg2=e.price; det=[e.qty!=null?"pos → "+fmtQ(e.qty):null, e.price!=null?"avg → "+fmtP(e.price):null, e.stop!=null?"stop → "+fmtP(e.stop):null].filter(Boolean).join(" · "); }
+      else if(e.type==="budget"){ det="risk → "+e.mult+"R"; }
+      return `<tr><td>${new Date(e.ts).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"2-digit"})}</td><td>${e.type}</td><td>${det}</td><td class="num">${fmtQ(Q2)}</td><td class="num">${Q2>0?fmtP(avg2):"—"}</td><td class="num ${cls(real2)}">${fmtR(real2/t.rUnit)}</td></tr>`;
+    }).join("");
+    return `<tr><td><button class="small" style="margin-right:6px" onclick="toggleLog('${t.id}')" id="tgl_${t.id}" title="Show event log & notes">&#9656;</button>${esc(t.ticker)}${t.notes?` <span class="muted" title="Has post-trade note">&#9998;</span>`:""}</td><td>${t.side>0?"L":"S"}</td><td>${TIER_NAMES[t.tier]}</td><td>${esc(t.concept)}</td><td class="num">${fmt$(t.rUnit)}</td><td class="num ${cls(d.realized)}">${fmt$(d.realized)}</td><td class="num ${cls(rm)}">${fmtR(rm)}${rm<-1.5?` <span class="pill short" style="font-size:10px;padding:1px 7px;" title="Loss well beyond 1R — discipline breach">breach</span>`:""}</td><td class="num">${t.events.length}</td><td class="num"><button class="small danger" title="Delete this trade" onclick="deleteTrade('${t.id}')">&#10005;</button></td></tr>
+    <tr id="log_${t.id}" style="display:none;"><td colspan="9" style="padding:10px 8px 14px; background:rgba(0,0,0,.18); font-family:inherit;">
+      <table><tr><th>Date</th><th>Event</th><th>Detail</th><th class="num">Pos after</th><th class="num">Avg after</th><th class="num">Realized R</th></tr>${evRows}</table>
+      <div style="margin-top:12px;">
+        <div style="font-size:10.5px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Post-trade notes</div>
+        <textarea id="note_${t.id}" style="height:76px;" placeholder="What did the Calculator say vs. what did you do? Where were you aligned or misaligned with process? What would the re-trade look like?">${esc(t.notes||"")}</textarea>
+        <div class="row" style="margin-top:6px;align-items:center;">
+          <button class="small" onclick="saveNote('${t.id}')">Save note</button>
+          <span class="muted" id="notest_${t.id}"></span>
+        </div>
+      </div>
+    </td></tr>`;
+  }).join("");
+  el.innerHTML = `<tr><th>Ticker</th><th>Side</th><th>Tier</th><th>Concept</th><th class="num">1R</th><th class="num">Realized</th><th class="num">R multiple</th><th class="num">Events</th><th></th></tr>`+rows;
+  const exp = closed.length? tot/closed.length : 0;
+  const payoff = (wn&&ln)? (wr/wn)/Math.abs(lr/ln) : null;
+  const disc = ln? Math.round(100*discOK/ln) : null;
+  stats.innerHTML = `
+    <div class="metric"><div class="k">Closed trades</div><div class="v">${closed.length}</div><div class="r">win rate ${Math.round(100*wins/closed.length)}% (an output)</div></div>
+    <div class="metric"><div class="k">Total R</div><div class="v ${cls(tot)}">${fmtR(tot)}</div></div>
+    <div class="metric"><div class="k">Expectancy</div><div class="v ${cls(exp)}">${fmtR(exp)}</div><div class="r">per trade — the number that matters</div></div>
+    <div class="metric"><div class="k">Avg win / avg loss</div><div class="v">${wn?fmtR(wr/wn).replace("+",""):"—"} / ${ln?fmtR(lr/ln):"—"}</div><div class="r">${payoff!=null?"payoff "+payoff.toFixed(1)+":1":""} · best ${rms.length?fmtR(Math.max(...rms)):"—"}</div></div>
+    <div class="metric"><div class="k">Loss discipline</div><div class="v" style="color:${disc==null?"var(--mut)":(disc>=80?"var(--green)":(disc>=60?"var(--amber)":"var(--red)"))}">${disc==null?"—":disc+"%"}</div><div class="r">losses held ≤1.2R · worst ${worst<0?fmtR(worst):"—"}</div></div>`;
+  const hbox=document.getElementById("rhistBox");
+  if(hbox){
+    if(closed.length>=3 && window.Chart){
+      hbox.style.display="block";
+      const buckets=["≤−2","−2:−1","−1:0","0:1","1:2","2:3","3:5","5+"];
+      const counts=[0,0,0,0,0,0,0,0];
+      rms.forEach(r=>{ counts[ r<=-2?0 : r<=-1?1 : r<0?2 : r<1?3 : r<2?4 : r<3?5 : r<5?6 : 7 ]++; });
+      charts.push(new Chart(document.getElementById("rhist"),{ type:"bar",
+        data:{ labels:buckets, datasets:[{ data:counts, backgroundColor:buckets.map((b,i)=>i<3?"#f4655f":"#2fd583"), borderRadius:4, maxBarThickness:40 }]},
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y+" trade(s)"}} },
+          scales:{ x:{ticks:{color:"#6b7484",font:{size:10}},grid:{display:false},title:{display:true,text:"R multiple distribution — the right tail pays for everything",color:"#6b7484",font:{size:10}}},
+                   y:{ticks:{color:"#6b7484",stepSize:1},grid:{color:"rgba(255,255,255,.06)"}} } }
+      }));
+    } else hbox.style.display="none";
+  }
+}
+
+function render(){
+  charts.forEach(c=>{ try{c.destroy();}catch(e){} }); charts=[];
+  document.getElementById("tab_trading").classList.toggle("primary", root.active==="trading");
+  document.getElementById("tab_main").classList.toggle("primary", root.active==="main");
+  renderSettings();
+  const open = state.trades.filter(t=>t.status==="open");
+  const heat = open.map(t=>{ const d=derive(t); const seq=riskAtStop(t,d)-d.realized; return {t,d,seq,seqR:seq/t.rUnit}; });
+  heat.sort((a,b)=> b.seqR - a.seqR);
+  const hb=document.getElementById("heatBar");
+  if(open.length){
+    const heat$ = heat.reduce((s,h)=>s+Math.max(0,h.seq),0);
+    const heatR = heat.reduce((s,h)=>s+Math.max(0,h.seqR),0);
+    const houseN = heat.filter(h=>h.seq<=0.0001&&h.d.Q>0).length;
+    const totPL = heat.reduce((s,h)=>s+h.d.realized+h.t.side*(h.t.last-h.d.avg)*h.d.Q,0);
+    const stale = heat.filter(h=>h.t.lastMarkTs && (Date.now()-h.t.lastMarkTs)>864e5).length;
+    const cap = state.settings.heatCap;
+    const overCap = heatR > cap;
+    const recent = state.trades.filter(t=>t.status==="closed").sort((a,b)=>(b.closedAt||0)-(a.closedAt||0)).slice(0,5);
+    const streakR = recent.reduce((s,t)=>s+derive(t).realized/t.rUnit,0);
+    const coldHit = recent.length>=3 && streakR <= -state.settings.coldR;
+    hb.style.display="block";
+    hb.innerHTML = `${overCap?`<div style="background:var(--redbg);border:1px solid rgba(244,101,95,.4);border-radius:10px;padding:10px 14px;margin-bottom:12px;color:var(--red);font-weight:600;">Heat cap breached: ${heatR.toFixed(2)}R open vs your ${cap}R cap. Survival lever — no new trades and no adds until heat comes back under the cap (trim, tighten, or wait for stops to ratchet).</div>`:""}
+    ${coldHit?`<div style="background:var(--amberbg);border:1px solid rgba(240,168,50,.4);border-radius:10px;padding:10px 14px;margin-bottom:12px;color:var(--amber);font-weight:600;">Cold-streak brake: ${streakR.toFixed(1)}R over your last ${recent.length} closed trades (threshold −${state.settings.coldR}R). The lever here is stepping back and reviewing — never resizing R to win it back.</div>`:""}
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <div class="statrow" style="flex:1;min-width:280px;">
+        <div class="metric"><div class="k">Open heat</div><div class="v" style="color:${overCap?"var(--red)":(heatR>0?"var(--amber)":"var(--green)")}">${heatR.toFixed(2)}R</div><div class="r">${fmt$(heat$)} if all stops hit · cap ${cap}R</div></div>
+        <div class="metric"><div class="k">Open trades</div><div class="v">${open.length}</div><div class="r">${houseN} at house money · ${open.length-houseN} at risk</div></div>
+        <div class="metric"><div class="k">Book P/L (mark)</div><div class="v ${cls(totPL)}">${fmt$(totPL)}</div><div class="r">realized + open</div></div>
+        <div class="metric"><div class="k">Stale marks</div><div class="v" style="color:${stale?"var(--amber)":"var(--green)"}">${stale||"none"}</div><div class="r">${stale?"trade(s) marked >24h ago":"all marks fresh"}</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="small" onclick="collapseAll(true)">Collapse all</button>
+        <button class="small" onclick="collapseAll(false)">Expand all</button>
+      </div>
+    </div>`;
+  } else hb.style.display="none";
+  openTrades.innerHTML = open.length? heat.map(h=>tradeCard(h.t)).join("") : `<div class="card muted">No open trades. Open one above — Cal sizes it from your R unit and tier.</div>`;
+  renderClosed();
+  open.forEach(t=>{
+    const d=derive(t);
+    const ctx=document.getElementById("ch_"+t.id);
+    if(!ctx||!window.Chart) return;
+    charts.push(new Chart(ctx,{ type:"line",
+      data:{ labels:d.series.map((s,i)=>(i+1)+" "+s.label),
+        datasets:[{ label:"Sequence P/L (R)", data:d.series.map(s=>Math.round(s.val*100)/100),
+          borderColor:"#4d9fff", backgroundColor:"rgba(77,159,255,.14)", fill:true, tension:.3, pointRadius:3,
+          pointBackgroundColor:"#4d9fff", borderWidth:2 }]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>fmtR(c.parsed.y)+" at event mark"}} },
+        scales:{ x:{ticks:{color:"#6b7484",font:{size:10}},grid:{display:false}},
+                 y:{ticks:{color:"#6b7484",callback:v=>v+"R"},grid:{color:"rgba(255,255,255,.06)"}} } }
+    }));
+  });
+}
+
+function bindSettings(){
+  aum.addEventListener("change",e=>{
+    const v=parseFloat(e.target.value.replace(/[^0-9.]/g,""));
+    if(!isNaN(v)&&v>0){ state.settings.aum=v; save(); }
+    render();
+  });
+  rpct.addEventListener("change",e=>{
+    const v=parseFloat(e.target.value);
+    if(!isNaN(v)&&v>0){ state.settings.rPct=v; save(); render(); }
+  });
+  [t0,t1,t2].forEach((el,i)=>el.addEventListener("change",e=>{
+    const v=parseFloat(e.target.value);
+    if(!isNaN(v)&&v>0){ state.settings.tiers[i]=v; save(); render(); }
+  }));
+  compound.addEventListener("change",e=>{ state.settings.compound = e.target.value==="1"; save(); });
+  fhkey.addEventListener("change",e=>{ state.settings.finnhub = e.target.value.trim(); save(); });
+  heatcap.addEventListener("change",e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ state.settings.heatCap=v; save(); render(); } });
+  coldr.addEventListener("change",e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ state.settings.coldR=v; save(); render(); } });
+  refreshBtn.addEventListener("click",refreshMarks);
+  [nt_entry,nt_stop,nt_side,nt_tier,nt_adr,nt_rb].forEach(el=>el.addEventListener("input",newTradeCal));
+  nt_open.addEventListener("click",openTrade);
+  exportBtn.addEventListener("click",()=>{ io.value=JSON.stringify(root,null,1); io_err.textContent=""; });
+  importBtn.addEventListener("click",()=>{
+    try{
+      const p=JSON.parse(io.value);
+      if(p.portfolios && p.active){ root=p; if(!root.portfolios[root.active]) root.active=Object.keys(root.portfolios)[0]; state=root.portfolios[root.active]; }
+      else if(p.settings && p.trades){ root.portfolios[root.active]=p; state=p; }
+      else throw 0;
+      save(); render(); io_err.textContent="Imported.";
+    }
+    catch(e){ io_err.textContent="Invalid JSON — nothing imported."; }
+  });
+}
+
+let refreshing=false;
+async function refreshMarks(){
+  if(refreshing) return;
+  const key = state.settings.finnhub;
+  const open = state.trades.filter(t=>t.status==="open");
+  const st = document.getElementById("refreshStatus");
+  if(!key){ st.textContent="Add a free Finnhub API key (finnhub.io/register) to pull live marks."; return; }
+  if(!open.length){ st.textContent="No open trades to refresh."; return; }
+  refreshing=true;
+  st.textContent="Refreshing "+open.length+" ticker(s)…";
+  const results=[];
+  for(const t of open){
+    try{
+      const res = await fetch("https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(t.ticker)+"&token="+encodeURIComponent(key));
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      const j = await res.json();
+      if(j && typeof j.c==="number" && j.c>0){ t.last=j.c; t.lastMarkTs=Date.now(); results.push(t.ticker+" "+fmtP(j.c)); }
+      else results.push(t.ticker+": no quote");
+    }catch(e){
+      results.push(t.ticker+": failed");
+    }
+  }
+  save(); render();
+  const anyFail = results.some(r=>/failed/.test(r));
+  document.getElementById("refreshStatus").textContent =
+    "Marks as of "+new Date().toLocaleTimeString()+" (auto-refreshes every minute) — "+results.join(" · ")+
+    (anyFail?" (If this is the Cowork sidebar, network is blocked here — use the saved HTML file in your browser for live refresh.)":"");
+  refreshing=false;
+}
+
+load(); bindSettings(); render();
+if(state.settings.finnhub && state.trades.some(t=>t.status==="open")) refreshMarks();
+setInterval(()=>{
+  const ae=document.activeElement;
+  if(ae && (ae.tagName==="INPUT"||ae.tagName==="TEXTAREA")) return;
+  if(state.settings.finnhub && state.trades.some(t=>t.status==="open")) refreshMarks();
+}, 60000);
+</script>
+</body>
+</html>
