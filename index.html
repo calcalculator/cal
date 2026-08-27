@@ -108,7 +108,7 @@
   <div class="card">
     <h2>New trade</h2>
     <div class="row">
-      <div><label>Ticker</label><input id="nt_tk" style="width:90px" placeholder="XNCR"></div>
+      <div><label>Ticker</label><input id="nt_tk" style="width:90px" placeholder="TICKER"></div>
       <div><label>Side</label><select id="nt_side" style="width:90px"><option value="1">Long</option><option value="-1">Short</option></select></div>
       <div><label>Tier</label><select id="nt_tier" style="width:110px"></select></div>
       <div><label>Custom R (opt)</label><input type="number" id="nt_rb" step="0.05" style="width:70px" placeholder="0.25"></div>
@@ -497,18 +497,19 @@ function tradeCard(t){
       <div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);" id="calmsg_${t.id}">Different add price? Type a price (and optional new stop) in the Add box — the max recomputes live. Fresh size if you had no position at ${fmtP(t.last)}: <b>${fresh!=null?fmtQ(fresh)+" shares":"—"}</b>.</div>
       ${trailNote?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${trailNote}</div>`:""}
     </div>
+    <div style="margin-top:12px;background:var(--inset);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;">
+      <div style="font-size:10.5px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Trade plan / notes <span class="muted" id="planst_${t.id}" style="text-transform:none;letter-spacing:0;"></span></div>
+      <textarea id="plan_${t.id}" style="height:60px;" placeholder="Where do you add? What invalidates the idea? What's the destination? (auto-saves when you click away)" onblur="savePlan('${t.id}')">${esc(t.plan||"")}</textarea>
+    </div>
     <div class="actions">
-      <div class="action"><div class="t">Mark / last price</div><div class="row">
-        <input type="number" step="any" id="px_${t.id}" placeholder="${t.last}" onkeydown="if(event.key==='Enter')setLast('${t.id}')">
-        <button class="small" onclick="setLast('${t.id}')">Set</button></div></div>
-      <div class="action"><div class="t">Add</div><div class="row">
-        <input type="number" step="any" id="addp_${t.id}" placeholder="price" oninput="liveAdd('${t.id}')" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
+      <div class="action"><div class="t">Add · price prefilled to last mark</div><div class="row">
+        <input type="number" step="any" id="addp_${t.id}" value="${t.last}" oninput="liveAdd('${t.id}')" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
         <input type="number" step="any" id="adds_${t.id}" placeholder="new stop" oninput="liveAdd('${t.id}')" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
         <input type="number" step="any" id="addq_${t.id}" placeholder="qty (Cal)" onkeydown="if(event.key==='Enter')doAdd('${t.id}')">
         <button class="small primary" onclick="doAdd('${t.id}')">Add</button></div>
         <div class="err" id="adderr_${t.id}"></div></div>
-      <div class="action"><div class="t">Trim / take profit</div><div class="row">
-        <input type="number" step="any" id="trp_${t.id}" placeholder="price" onkeydown="if(event.key==='Enter')doTrim('${t.id}',null)">
+      <div class="action"><div class="t">Trim / take profit · price prefilled</div><div class="row">
+        <input type="number" step="any" id="trp_${t.id}" value="${t.last}" onkeydown="if(event.key==='Enter')doTrim('${t.id}',null)">
         <input type="number" step="any" id="trq_${t.id}" placeholder="qty" onkeydown="if(event.key==='Enter')doTrim('${t.id}',null)">
         <button class="small" onclick="doTrim('${t.id}',0.25)">25% (${fmtQ(Math.floor(d.Q*0.25))})</button>
         <button class="small" onclick="doTrim('${t.id}',0.5)">50% (${fmtQ(Math.floor(d.Q*0.5))})</button>
@@ -531,17 +532,24 @@ function tradeCard(t){
         <button class="small primary" onclick="setBudget('${t.id}')">Set</button></div>
         <div class="err" id="rberr_${t.id}"></div>
         <div class="muted" style="margin-top:5px;">Start small, upsize on further breakouts — Max add recomputes to the new budget. Logged.</div></div>
-      <div class="action"><div class="t">Close all</div><div class="row">
-        <input type="number" step="any" id="clp_${t.id}" placeholder="price" onkeydown="if(event.key==='Enter')closeTrade('${t.id}')">
+      <div class="action"><div class="t">Close all · price prefilled</div><div class="row">
+        <input type="number" step="any" id="clp_${t.id}" value="${t.last}" onkeydown="if(event.key==='Enter')closeTrade('${t.id}')">
         <button class="small danger" onclick="closeTrade('${t.id}')">Close</button></div>
         <div class="err" id="clerr_${t.id}"></div></div>
-      <div class="action"><div class="t">Adjust (override)</div><div class="row">
-        <input type="number" step="any" id="ajq_${t.id}" placeholder="${fmtQ(d.Q)} sh" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
-        <input type="number" step="any" id="aja_${t.id}" placeholder="avg ${fmtP(d.avg)}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
-        <input type="number" step="any" id="ajs_${t.id}" placeholder="${d.stop!=null?"stop "+fmtP(d.stop):"stop"}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
-        <button class="small" onclick="doAdjust('${t.id}')">Apply</button></div>
-        <div class="err" id="ajerr_${t.id}"></div></div>
     </div>
+    <details style="margin-top:10px;"><summary>Manual overrides — mark price &amp; position</summary>
+      <div class="actions" style="border-top:none;padding-top:8px;margin-top:0;">
+        <div class="action"><div class="t">Override mark (auto-set by API/actions)</div><div class="row">
+          <input type="number" step="any" id="px_${t.id}" placeholder="${t.last}" onkeydown="if(event.key==='Enter')setLast('${t.id}')">
+          <button class="small" onclick="setLast('${t.id}')">Set</button></div></div>
+        <div class="action"><div class="t">Adjust position (sync to broker)</div><div class="row">
+          <input type="number" step="any" id="ajq_${t.id}" placeholder="${fmtQ(d.Q)} sh" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+          <input type="number" step="any" id="aja_${t.id}" placeholder="avg ${fmtP(d.avg)}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+          <input type="number" step="any" id="ajs_${t.id}" placeholder="${d.stop!=null?"stop "+fmtP(d.stop):"stop"}" onkeydown="if(event.key==='Enter')doAdjust('${t.id}')">
+          <button class="small" onclick="doAdjust('${t.id}')">Apply</button></div>
+          <div class="err" id="ajerr_${t.id}"></div></div>
+      </div>
+    </details>
     <div class="chartbox"><canvas id="ch_${t.id}"></canvas></div>
     <details style="margin-top:10px;"><summary>Event log (${t.events.length})</summary>
       <table><tr><th>Date</th><th>Event</th><th>Detail</th></tr>${rows}</table></details>
@@ -639,6 +647,16 @@ window.doAdjust = id => {
   t.events.push({type:"adjust", qty:isNaN(q)?null:q, price:isNaN(a)?null:a, stop:isNaN(s)?null:s, ts:Date.now()});
   save(); render();
 };
+window.savePlan = id => {
+  const t=getTrade(id);
+  const ta=document.getElementById("plan_"+id);
+  if(!t||!ta) return;
+  if((t.plan||"") === ta.value.trim()) return;
+  t.plan = ta.value.trim();
+  save();
+  const st=document.getElementById("planst_"+id);
+  if(st){ st.textContent="· saved"; setTimeout(()=>{ if(st) st.textContent=""; }, 2500); }
+};
 window.saveNote = id => {
   const t=getTrade(id);
   const ta=document.getElementById("note_"+id);
@@ -711,6 +729,7 @@ function renderClosed(){
     return `<tr><td><button class="small" style="margin-right:6px" onclick="toggleLog('${t.id}')" id="tgl_${t.id}" title="Show event log & notes">&#9656;</button>${esc(t.ticker)}${t.notes?` <span class="muted" title="Has post-trade note">&#9998;</span>`:""}</td><td>${t.side>0?"L":"S"}</td><td>${TIER_NAMES[t.tier]}</td><td>${esc(t.concept)}</td><td class="num">${fmt$(t.rUnit)}</td><td class="num ${cls(d.realized)}">${fmt$(d.realized)}</td><td class="num ${cls(rm)}">${fmtR(rm)}${rm<-1.5?` <span class="pill short" style="font-size:10px;padding:1px 7px;" title="Loss well beyond 1R — discipline breach">breach</span>`:""}</td><td class="num">${t.events.length}</td><td class="num"><button class="small danger" title="Delete this trade" onclick="deleteTrade('${t.id}')">&#10005;</button></td></tr>
     <tr id="log_${t.id}" style="display:none;"><td colspan="9" style="padding:10px 8px 14px; background:rgba(0,0,0,.18); font-family:inherit;">
       <table><tr><th>Date</th><th>Event</th><th>Detail</th><th class="num">Pos after</th><th class="num">Avg after</th><th class="num">Realized R</th></tr>${evRows}</table>
+      ${t.plan?`<div style="margin-top:12px;"><div style="font-size:10.5px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Trade plan (as written during the trade)</div><div class="calsub" style="white-space:pre-wrap;">${esc(t.plan)}</div></div>`:""}
       <div style="margin-top:12px;">
         <div style="font-size:10.5px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Post-trade notes</div>
         <textarea id="note_${t.id}" style="height:76px;" placeholder="What did the Calculator say vs. what did you do? Where were you aligned or misaligned with process? What would the re-trade look like?">${esc(t.notes||"")}</textarea>
