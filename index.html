@@ -40,8 +40,8 @@
   button.small { padding:4px 10px; font-size:12.5px; }
   button.danger { color:var(--red); }
   button.danger:hover { border-color:var(--red); box-shadow:0 0 12px rgba(244,101,95,.25); color:var(--red); }
-  .runit { font-size:22px; font-weight:700; font-family:var(--mono); color:#fff; text-shadow:0 0 18px rgba(77,159,255,.45); }
-  .runit small { font-size:11px; color:var(--sub); font-weight:400; font-family:inherit; text-shadow:none; }
+  .runit { font-size:22px; font-weight:700; font-family:var(--mono); color:var(--green); text-shadow:0 0 18px rgba(47,213,131,.4); }
+  .runit small { font-size:11px; color:var(--green); opacity:.75; font-weight:400; font-family:inherit; text-shadow:none; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(122px,1fr)); gap:8px; margin:14px 0; }
   .metric { background:var(--inset); border:1px solid var(--bd); border-radius:10px; padding:9px 11px; }
   .metric .k { font-size:10px; color:var(--sub); text-transform:uppercase; letter-spacing:.07em; }
@@ -96,29 +96,19 @@
       <div class="row">
         <div><label>Portfolio value (AUM)</label><input type="text" id="aum" class="wide" inputmode="decimal" style="font-family:var(--mono);font-size:13px;"></div>
         <div><label>R as % of portfolio</label><input type="number" id="rpct" step="0.05"></div>
-        <div><label>Tier multipliers (A+ / A / B)</label>
-          <span style="display:flex;gap:6px;">
-            <input type="number" id="t0" step="0.25" style="width:60px">
-            <input type="number" id="t1" step="0.25" style="width:60px">
-            <input type="number" id="t2" step="0.25" style="width:60px">
-          </span>
-        </div>
-        <div><label>Compound realized into AUM</label><select id="compound" style="width:80px"><option value="1">Yes</option><option value="0">No</option></select></div>
-        <div><label>Max open heat (R)</label><input type="number" id="heatcap" step="0.5" style="width:70px"></div>
-        <div><label>Cold-streak brake (R / last 5)</label><input type="number" id="coldr" step="0.5" style="width:70px"></div>
         <div><label>Finnhub API key (free — finnhub.io)</label><input id="fhkey" class="wide" placeholder="paste key" autocomplete="off"></div>
         <div><button id="refreshBtn">Refresh marks</button></div>
       </div>
       <div class="runit" id="runitBox"></div>
     </div>
     <p class="hint" id="refreshStatus"></p>
-    <p class="hint">1R recalculates from AUM — it scales as you compound. Each trade locks its R unit at open. R expresses edge, never desired size — the survival levers (heat cap, cold-streak brake) live separately on purpose. Data lives locally: use Export below to back up.</p>
+    <p class="hint" style="color:var(--green);">1R recalculates from AUM — it scales as you compound. Each trade locks its R unit at open. R expresses edge, never desired size. Marks auto-refresh every 60 seconds once an API key is saved. Data lives locally in your browser: use Export below to back up.</p>
   </div>
 
   <div class="card">
     <h2>New trade</h2>
     <div class="row">
-      <div><label>Ticker</label><input id="nt_tk" style="width:90px" placeholder="TICKER"></div>
+      <div><label>Ticker</label><input id="nt_tk" style="width:90px" placeholder="XNCR"></div>
       <div><label>Side</label><select id="nt_side" style="width:90px"><option value="1">Long</option><option value="-1">Short</option></select></div>
       <div><label>Tier</label><select id="nt_tier" style="width:110px"></select></div>
       <div><label>Custom R (opt)</label><input type="number" id="nt_rb" step="0.05" style="width:70px" placeholder="0.25"></div>
@@ -354,10 +344,8 @@ function beStop(t,d){ return d.Q>0 ? d.avg - t.side*d.realized/d.Q : null; }
 
 function renderSettings(){
   const s=state.settings;
-  aum.value="$"+s.aum.toLocaleString(undefined,{maximumFractionDigits:0}); rpct.value=s.rPct; t0.value=s.tiers[0]; t1.value=s.tiers[1]; t2.value=s.tiers[2];
-  compound.value = s.compound?"1":"0";
+  aum.value="$"+s.aum.toLocaleString(undefined,{maximumFractionDigits:0}); rpct.value=s.rPct;
   fhkey.value = s.finnhub||"";
-  heatcap.value = s.heatCap; coldr.value = s.coldR;
   runitBox.innerHTML = "1R = " + fmt$(rUnitNow()) + " <small>(" + s.rPct + "% of " + fmt$(s.aum) + ")</small>";
   const tierSel = nt_tier.value!==""? nt_tier.value : "1";
   nt_tier.innerHTML = TIER_NAMES.map((n,i)=>`<option value="${i}"${i===parseInt(tierSel)?" selected":""}>${n} — ${s.tiers[i]}R (${fmt$(rUnitNow()*s.tiers[i])})</option>`).join("");
@@ -826,14 +814,7 @@ function bindSettings(){
     const v=parseFloat(e.target.value);
     if(!isNaN(v)&&v>0){ state.settings.rPct=v; save(); render(); }
   });
-  [t0,t1,t2].forEach((el,i)=>el.addEventListener("change",e=>{
-    const v=parseFloat(e.target.value);
-    if(!isNaN(v)&&v>0){ state.settings.tiers[i]=v; save(); render(); }
-  }));
-  compound.addEventListener("change",e=>{ state.settings.compound = e.target.value==="1"; save(); });
   fhkey.addEventListener("change",e=>{ state.settings.finnhub = e.target.value.trim(); save(); });
-  heatcap.addEventListener("change",e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ state.settings.heatCap=v; save(); render(); } });
-  coldr.addEventListener("change",e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ state.settings.coldR=v; save(); render(); } });
   refreshBtn.addEventListener("click",refreshMarks);
   [nt_entry,nt_stop,nt_side,nt_tier,nt_adr,nt_rb].forEach(el=>el.addEventListener("input",newTradeCal));
   nt_open.addEventListener("click",openTrade);
