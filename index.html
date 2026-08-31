@@ -701,6 +701,16 @@ function tradeCard(t){
       overHtml = `<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(244,101,95,.35);color:var(--red);"><b>Oversized and the mark is at/past the stop</b> — no trim at this price can restore the budget. This is an exit-or-honest-restop decision, not a resize.</div>`;
     }
   }
+  let underHtml="";
+  if(!overHtml && d.stop!=null && d.Q>0 && bookOf(t).settings.sizeMode!=="be"){
+    const bU = budget(t,d);
+    if(seq > 0.01 && seq < bU - 0.01){
+      const lmU = maxAdd(t,d,t.last,d.stop);
+      if(lmU.ok && lmU.q>0){
+        underHtml = `<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(240,168,50,.35);"><span style="color:var(--amber);font-weight:600;">Undersized:</span> at stop ${fmtPt(t,d.stop)} the sequence risks only ${fmtR(seq/R).replace("+","")} — ${Math.round(100*seq/bU)}% of your ${d.mult}R budget. Adding <b>${fmtQ(lmU.q)} ${qtyWord(t)}</b> at the mark ${fmtPt(t,t.last)} re-sizes the position to full budget. <button class="small" style="margin-left:6px;border-color:rgba(240,168,50,.5);color:var(--amber);" onclick="sizeUp('${t.id}')">Add ${fmtQ(lmU.q)} to size</button><span class="muted" style="display:block;margin-top:3px;">Affordability, not a green light — Russo's chain still applies: no signal → no add.</span></div>`;
+      }
+    }
+  }
   const planBits = [
     t.planH && t.planH.addIf  ? "<b>add if</b> "+esc(t.planH.addIf)   : null,
     t.planH && t.planH.cutIf  ? "<b>cut if</b> "+esc(t.planH.cutIf)   : null,
@@ -761,7 +771,7 @@ function tradeCard(t){
           : `<div class="calans">Max add right now: 0 ${qtyWord(t)}</div>
              <div class="calsub">${beMode? `No banked cushion beyond the current stop risk — in B/E mode there's nothing to spend. Bank profit (trim) or tighten the stop first.` : `The position consumes the full ${d.mult}R budget at stop ${fmtPt(t,d.stop)}. No signal → no stop move → no add. Tighten on structure, trim, or upsize the R budget (on breakout) to free size.`}</div>`;
       })()}
-      ${overHtml}
+      ${overHtml}${underHtml}
       <div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);" id="calmsg_${t.id}">Different add price? Type a price (and optional new stop) in the Add box — the max recomputes live. Fresh size if you had no position at ${fmtPt(t,t.last)}: <b>${fresh!=null?fmtQ(fresh)+" "+qtyWord(t):"—"}</b>.</div>
       ${trailNote?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${trailNote}</div>`:""}
       ${planBits.length?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${planBits.join(" &nbsp;·&nbsp; ")}</div>`:""}
@@ -962,6 +972,14 @@ window.closeTrade = id => {
   save(); render();
 };
 window.setLossTag = (id,v) => { const t = getTrade(id); if(t){ t.lossTag = v||null; save(); render(); } };
+window.sizeUp = id => {
+  const t=getTrade(id), d=derive(t);
+  if(!t || d.stop==null || d.Q<=0) return;
+  const lm = maxAdd(t,d,t.last,d.stop);
+  if(!lm.ok || lm.q<=0) return;
+  t.events.push({type:"add", qty:lm.q, price:t.last, stop:d.stop, ts:Date.now()});
+  t.lastMarkTs=Date.now(); save(); render();
+};
 window.rightSize = id => {
   const t=getTrade(id), d=derive(t);
   if(!t || d.stop==null || d.Q<=0) return;
