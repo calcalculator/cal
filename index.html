@@ -134,7 +134,10 @@
       <div class="row">
         <div><label>Portfolio value (AUM)</label><input type="text" id="aum" class="wide" inputmode="decimal" style="font-family:var(--mono);font-size:13px;"></div>
         <div><label>R as % of portfolio</label><input type="number" id="rpct" step="0.05"></div>
-        <div><label>Finnhub API key (free — finnhub.io)</label><input id="fhkey" class="wide" placeholder="paste key" autocomplete="off"></div>
+        <div><label>Data source</label><select id="dsrc" style="width:110px"><option value="finnhub">Finnhub</option><option value="alpaca">Alpaca</option></select></div>
+        <div id="fhwrap"><label>Finnhub API key (free — finnhub.io)</label><input id="fhkey" class="wide" placeholder="paste key" autocomplete="off"></div>
+        <div id="apwrap1" style="display:none;"><label>Alpaca API key ID</label><input id="apkey" class="wide" placeholder="PK…" autocomplete="off"></div>
+        <div id="apwrap2" style="display:none;"><label>Alpaca secret key</label><input id="apsec" class="wide" type="password" placeholder="secret" autocomplete="off"></div>
         <div><button id="refreshBtn">Refresh marks</button></div>
       </div>
       <div class="runit" id="runitBox"></div>
@@ -395,7 +398,7 @@ let root = null;
 let state = null;
 let charts = [];
 
-function defaults(){ return { settings:{ aum:100000, rPct:1, tiers:[2,1,0.5], compound:true, finnhub:"", heatCap:5, coldR:3, sizeMode:"r", closedCollapsed:false }, trades:[] }; }
+function defaults(){ return { settings:{ aum:100000, rPct:1, tiers:[2,1,0.5], compound:true, finnhub:"", dataSrc:"finnhub", alpacaKey:"", alpacaSec:"", heatCap:5, coldR:3, sizeMode:"r", closedCollapsed:false }, trades:[] }; }
 function newRoot(){ return { active:"trading", portfolios:{ trading:defaults(), main:defaults(), futures:defaults() } }; }
 function FUT(){ return root.portfolios.futures; }
 function load(){
@@ -414,6 +417,9 @@ function load(){
     if(pf.settings.heatCap==null) pf.settings.heatCap=5;
     if(pf.settings.coldR==null) pf.settings.coldR=3;
     if(!pf.settings.sizeMode) pf.settings.sizeMode="r";
+    if(!pf.settings.dataSrc) pf.settings.dataSrc="finnhub";
+    if(pf.settings.alpacaKey==null) pf.settings.alpacaKey="";
+    if(pf.settings.alpacaSec==null) pf.settings.alpacaSec="";
     if(!pf.trades) pf.trades=[];
     pf.trades.forEach(t=>{
       if(!t.lastMarkTs) t.lastMarkTs=t.createdAt||Date.now();
@@ -1182,6 +1188,12 @@ function renderSettings(){
   const s=state.settings;
   aum.value="$"+s.aum.toLocaleString(undefined,{maximumFractionDigits:0}); rpct.value=s.rPct;
   fhkey.value = s.finnhub||"";
+  dsrc.value = s.dataSrc||"finnhub";
+  apkey.value = s.alpacaKey||""; apsec.value = s.alpacaSec||"";
+  const alp = (s.dataSrc==="alpaca");
+  fhwrap.style.display = alp? "none":"block";
+  apwrap1.style.display = alp? "block":"none";
+  apwrap2.style.display = alp? "block":"none";
   runitBox.innerHTML = "1R = " + fmt$(rUnitNow()) + " <small>(" + s.rPct + "% of " + fmt$(s.aum) + ")</small>";
   const tierSel = nt_tier.value!==""? nt_tier.value : "1";
   nt_tier.innerHTML = TIER_NAMES.map((n,i)=>`<option value="${i}"${i===parseInt(tierSel)?" selected":""}>${n} — ${s.tiers[i]}R (${fmt$(rUnitNow()*s.tiers[i])})</option>`).join("");
@@ -1311,6 +1323,9 @@ function bindSettings(){
     if(!isNaN(v)&&v>0){ state.settings.rPct=v; save(); render(); }
   });
   fhkey.addEventListener("change",e=>{ state.settings.finnhub = e.target.value.trim(); save(); });
+  dsrc.addEventListener("change",e=>{ state.settings.dataSrc = e.target.value; save(); render(); });
+  apkey.addEventListener("change",e=>{ state.settings.alpacaKey = e.target.value.trim(); save(); });
+  apsec.addEventListener("change",e=>{ state.settings.alpacaSec = e.target.value.trim(); save(); });
   f_aum.addEventListener("change",e=>{
     const v=parseFloat(e.target.value.replace(/[^0-9.]/g,""));
     if(!isNaN(v)&&v>0){ FUT().settings.aum=v; save(); }
@@ -1389,22 +1404,59 @@ function applyImport(){
 
 /* ---------- live marks ---------- */
 let refreshing=false;
+function marksReady(){
+  const s=state.settings;
+  return s.dataSrc==="alpaca" ? !!(s.alpacaKey && s.alpacaSec) : !!s.finnhub;
+}
+async function fetchQuote(sym){
+  const s=state.settings;
+  if(s.dataSrc==="alpaca"){
+    const hdrs = {"APCA-API-KEY-ID":s.alpacaKey, "APCA-API-SECRET-KEY":s.alpacaSec};
+    let res = await fetch("https://data.alpaca.markets/v2/stocks/"+encodeURIComponent(sym)+"/trades/latest?feed=sip",{headers:hdrs});
+    let feed="sip";
+    if(res.status===403){
+      res = await fetch("https://data.alpaca.markets/v2/stocks/"+encodeURIComponent(sym)+"/trades/latest?feed=iex",{headers:hdrs});
+      feed="iex";
+    }
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const j = await res.json();
+    if(j && j.trade && typeof j.trade.p==="number" && j.trade.p>0){
+      return { price:j.trade.p, qts:Date.parse(j.trade.t)||Date.now(), note:(feed==="iex"?" (iex feed — sip not enabled on this key)":"") };
+    }
+    return null;
+  }
+  const res = await fetch("https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(sym)+"&token="+encodeURIComponent(s.finnhub));
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const j = await res.json();
+  if(j && typeof j.c==="number" && j.c>0) return { price:j.c, qts:(j.t? j.t*1000 : Date.now()), note:"" };
+  return null;
+}
 async function refreshMarks(){
   if(refreshing) return;
-  const key = state.settings.finnhub;
   const open = state.trades.filter(t=>t.status==="open");
   const st = document.getElementById("refreshStatus");
-  if(!key){ st.textContent="Add a free Finnhub API key (finnhub.io/register) to pull live marks."; return; }
+  if(!marksReady()){
+    st.textContent = state.settings.dataSrc==="alpaca"
+      ? "Enter your Alpaca API key ID and secret to pull live marks."
+      : "Add a free Finnhub API key (finnhub.io/register) to pull live marks — or switch the data source to Alpaca.";
+    return;
+  }
   if(!open.length){ st.textContent="No open trades to refresh."; return; }
   refreshing=true;
   st.textContent="Refreshing "+open.length+" ticker(s)…";
   const results=[];
   for(const t of open){
     try{
-      const res = await fetch("https://finnhub.io/api/v1/quote?symbol="+encodeURIComponent(t.ticker)+"&token="+encodeURIComponent(key));
-      if(!res.ok) throw new Error("HTTP "+res.status);
-      const j = await res.json();
-      if(j && typeof j.c==="number" && j.c>0){ t.last=j.c; t.lastMarkTs=Date.now(); results.push(t.ticker+" "+fmtP(j.c)); }
+      const q = await fetchQuote(t.ticker);
+      if(q){
+        const ageMin = Math.max(0, Math.round((Date.now()-q.qts)/60000));
+        if(q.qts >= (t.lastMarkTs||0) - 5000){
+          t.last=q.price; t.lastMarkTs=q.qts;
+          results.push(t.ticker+" "+fmtP(q.price)+q.note+(ageMin>10?" ⚠ quote "+ageMin+"m old — consider a manual mark":""));
+        } else {
+          results.push(t.ticker+": kept your newer mark "+fmtP(t.last)+" (API quote is "+ageMin+"m older)");
+        }
+      }
       else results.push(t.ticker+": no quote");
     }catch(e){
       results.push(t.ticker+": failed");
@@ -1413,17 +1465,17 @@ async function refreshMarks(){
   save(); render();
   const anyFail = results.some(r=>/failed/.test(r));
   document.getElementById("refreshStatus").textContent =
-    "Marks as of "+new Date().toLocaleTimeString()+" (auto-refreshes every minute) — "+results.join(" · ")+
-    (anyFail?" (If this is a sandboxed viewer, network may be blocked — use the hosted or local copy in your browser for live refresh.)":"");
+    "Marks as of "+new Date().toLocaleTimeString()+" via "+(state.settings.dataSrc==="alpaca"?"Alpaca":"Finnhub")+" (auto-refreshes every minute) — "+results.join(" · ")+
+    (anyFail?" (Check the key/secret, or if this is a sandboxed viewer, network may be blocked.)":"");
   refreshing=false;
 }
 
 load(); bindSettings(); render(); initRail();
-if(state.settings.finnhub && state.trades.some(t=>t.status==="open")) refreshMarks();
+if(marksReady() && state.trades.some(t=>t.status==="open")) refreshMarks();
 setInterval(()=>{
   const ae=document.activeElement;
   if(ae && (ae.tagName==="INPUT"||ae.tagName==="TEXTAREA"||ae.tagName==="SELECT")) return;
-  if(state.settings.finnhub && state.trades.some(t=>t.status==="open")) refreshMarks();
+  if(marksReady() && state.trades.some(t=>t.status==="open")) refreshMarks();
 }, 60000);
 </script>
 </body>
