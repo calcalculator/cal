@@ -684,6 +684,17 @@ function tradeCard(t){
       ? `1R trail from ${fmtPt(t,t.last)}: <b>${fmtPt(t,trail)}</b> (1R/${qtyWord(t)} = ${fmt$(riskPS*pv)}, from your original entry risk). ${seqAtTrail<=0? `At that stop the sequence <b>locks ${fmtR(-seqAtTrail/R)}</b> — worst case is a win.` : `At that stop the sequence still risks ${fmtR(seqAtTrail/R).replace("+","")}.`}`
       : `1R trail would be ${fmtPt(t,trail)} — your current stop ${fmtPt(t,d.stop)} is already tighter. The trail never auto-loosens; but if the name has fallen back into noise and honest invalidation now sits wider, widening the stop via Move is a legitimate, logged decision (size stays governed by the sequence budget).`;
   }
+  let overHtml="";
+  if(d.stop!=null && d.Q>0 && seq > budget(t,d) + 0.01){
+    const denomTrim = t.side*(t.last-d.stop)*pv;
+    if(denomTrim>0){
+      const trimN = Math.min(d.Q, Math.ceil((seq - budget(t,d))/denomTrim));
+      const targetQ = d.Q - trimN;
+      overHtml = `<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(244,101,95,.35);color:var(--red);"><b>Oversized:</b> at stop ${fmtPt(t,d.stop)} the sequence risks ${fmtR(seq/R).replace("+","")} against your ${d.mult}R budget. Right size at this stop and mark is <b style="color:#fff;">${fmtQ(targetQ)} ${qtyWord(t)}</b> — trimming <b style="color:#fff;">${fmtQ(trimN)}</b> at ${fmtPt(t,t.last)} brings the worst case back inside budget (the trim's own P/L is included in the math). <button class="small danger" style="margin-left:6px;" onclick="rightSize('${t.id}')">Trim ${fmtQ(trimN)} to size</button></div>`;
+    } else {
+      overHtml = `<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(244,101,95,.35);color:var(--red);"><b>Oversized and the mark is at/past the stop</b> — no trim at this price can restore the budget. This is an exit-or-honest-restop decision, not a resize.</div>`;
+    }
+  }
   const planBits = [
     t.planH && t.planH.addIf  ? "<b>add if</b> "+esc(t.planH.addIf)   : null,
     t.planH && t.planH.cutIf  ? "<b>cut if</b> "+esc(t.planH.cutIf)   : null,
@@ -744,6 +755,7 @@ function tradeCard(t){
           : `<div class="calans">Max add right now: 0 ${qtyWord(t)}</div>
              <div class="calsub">${beMode? `No banked cushion beyond the current stop risk — in B/E mode there's nothing to spend. Bank profit (trim) or tighten the stop first.` : `The position consumes the full ${d.mult}R budget at stop ${fmtPt(t,d.stop)}. No signal → no stop move → no add. Tighten on structure, trim, or upsize the R budget (on breakout) to free size.`}</div>`;
       })()}
+      ${overHtml}
       <div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);" id="calmsg_${t.id}">Different add price? Type a price (and optional new stop) in the Add box — the max recomputes live. Fresh size if you had no position at ${fmtPt(t,t.last)}: <b>${fresh!=null?fmtQ(fresh)+" "+qtyWord(t):"—"}</b>.</div>
       ${trailNote?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${trailNote}</div>`:""}
       ${planBits.length?`<div class="calsub" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(77,159,255,.2);">${planBits.join(" &nbsp;·&nbsp; ")}</div>`:""}
@@ -944,6 +956,20 @@ window.closeTrade = id => {
   save(); render();
 };
 window.setLossTag = (id,v) => { const t = getTrade(id); if(t){ t.lossTag = v||null; save(); render(); } };
+window.rightSize = id => {
+  const t=getTrade(id), d=derive(t);
+  if(!t || d.stop==null || d.Q<=0) return;
+  const pv=t.pv||1;
+  const seq = riskAtStop(t,d) - d.realized;
+  const b = budget(t,d);
+  if(seq <= b + 0.01) return;
+  const denomTrim = t.side*(t.last-d.stop)*pv;
+  if(!(denomTrim>0)) return;
+  const trimN = Math.min(d.Q, Math.ceil((seq - b)/denomTrim));
+  if(trimN<=0) return;
+  t.events.push({type:"trim", qty:trimN, price:t.last, ts:Date.now()});
+  t.lastMarkTs=Date.now(); save(); render();
+};
 
 function lossTagSelect(t){
   if(derive(t).realized >= 0) return '<span class="muted">—</span>';
