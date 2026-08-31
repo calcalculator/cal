@@ -206,7 +206,7 @@
   </div>
 
   <div class="card" id="sec-fut">
-    <h2>Futures — ES / NQ sizing</h2>
+    <h2>Futures — index, oil &amp; metals sizing</h2>
     <p class="hint" style="margin:0 0 12px;">Same methodology, one book. Prices in index points; Cal sizes in contracts from each instrument's dollars-per-point. No live marks here — update via actions or the mark override.</p>
     <div class="row" style="justify-content:space-between;">
       <div class="row">
@@ -378,7 +378,13 @@ const FUT_INSTR = {
   ES:{name:"ES — E-mini S&P", pv:50, tick:0.25, tickVal:12.50},
   NQ:{name:"NQ — E-mini Nasdaq", pv:20, tick:0.25, tickVal:5.00},
   MES:{name:"MES — Micro S&P", pv:5, tick:0.25, tickVal:1.25},
-  MNQ:{name:"MNQ — Micro Nasdaq", pv:2, tick:0.25, tickVal:0.50}
+  MNQ:{name:"MNQ — Micro Nasdaq", pv:2, tick:0.25, tickVal:0.50},
+  CL:{name:"CL — Crude Oil", pv:1000, tick:0.01, tickVal:10.00},
+  MCL:{name:"MCL — Micro Crude", pv:100, tick:0.01, tickVal:1.00},
+  GC:{name:"GC — Gold", pv:100, tick:0.10, tickVal:10.00},
+  MGC:{name:"MGC — Micro Gold", pv:10, tick:0.10, tickVal:1.00},
+  SI:{name:"SI — Silver", pv:5000, tick:0.005, tickVal:25.00},
+  SIL:{name:"SIL — Micro Silver", pv:1000, tick:0.005, tickVal:5.00}
 };
 const LOSS_TAGS = [
   { v:"invalidation", t:"Thesis broken — the stop did its job" },
