@@ -172,8 +172,7 @@
       <div class="pt">Plan &amp; hinges — the commitment (decided now, not later)</div>
       <div class="split">
         <div><label for="nt_add_if">If X happens → add</label><input id="nt_add_if" type="text" placeholder="breaks the flag high on volume"></div>
-        <div><label for="nt_cut_if">If Y happens → cut</label><input id="nt_cut_if" type="text" placeholder="closes below the higher low"></div>
-        <div><label for="nt_wait_if">If Z happens → wait</label><input id="nt_wait_if" type="text" placeholder="drifts sideways inside 1 ADR"></div>
+        <div><label for="nt_tstop">Time stop (days — unresolved by then = invalid)</label><input id="nt_tstop" type="number" step="1" min="1" placeholder="15" style="width:100%;font-family:var(--mono);"></div>
         <div><label for="nt_exit">Exit plan (where the thesis has resolved)</label><input id="nt_exit" type="text" placeholder="measured move / prior high"></div>
       </div>
     </div>
@@ -240,8 +239,7 @@
       <div class="pt">Plan &amp; hinges — the commitment (decided now, not later)</div>
       <div class="split">
         <div><label for="f_add_if">If X happens → add</label><input id="f_add_if" type="text" placeholder="reclaims VWAP and holds"></div>
-        <div><label for="f_cut_if">If Y happens → cut</label><input id="f_cut_if" type="text" placeholder="loses the low of the range"></div>
-        <div><label for="f_wait_if">If Z happens → wait</label><input id="f_wait_if" type="text" placeholder="chops inside the first hour range"></div>
+        <div><label for="f_tstop">Time stop (days — unresolved by then = invalid)</label><input id="f_tstop" type="number" step="1" min="1" placeholder="2" style="width:100%;font-family:var(--mono);"></div>
         <div><label for="f_exit">Exit plan (where the thesis has resolved)</label><input id="f_exit" type="text" placeholder="measured move / prior day high"></div>
       </div>
     </div>
@@ -535,13 +533,15 @@ function updateGate(px){
 }
 function hingesOf(px){
   return { addIf:document.getElementById(px+"_add_if").value.trim(),
-           cutIf:document.getElementById(px+"_cut_if").value.trim(),
-           waitIf:document.getElementById(px+"_wait_if").value.trim(),
            exit:document.getElementById(px+"_exit").value.trim() };
 }
+function tstopOf(px){
+  const v=parseFloat(document.getElementById(px+"_tstop").value);
+  return !isNaN(v)&&v>0 ? Math.round(v) : null;
+}
 function resetForm(px){
-  const ids = px==="nt" ? ["nt_tk","nt_concept","nt_entry","nt_stop","nt_qty","nt_rb","nt_adr","nt_add_if","nt_cut_if","nt_wait_if","nt_exit"]
-                        : ["f_concept","f_entry","f_stop","f_qty","f_rb","f_add_if","f_cut_if","f_wait_if","f_exit"];
+  const ids = px==="nt" ? ["nt_tk","nt_concept","nt_entry","nt_stop","nt_qty","nt_rb","nt_adr","nt_add_if","nt_tstop","nt_exit"]
+                        : ["f_concept","f_entry","f_stop","f_qty","f_rb","f_add_if","f_tstop","f_exit"];
   ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
   [0,1,2,3].forEach(i=>{ document.getElementById(px+"_c"+i).checked=false; });
   updateGate(px);
@@ -601,7 +601,7 @@ function openTrade(){
     pv:1,
     rUnit: rUnitNow(), aumAtOpen: state.settings.aum, status:"open", last:P, lastMarkTs:Date.now(),
     checks:[0,1,2,3].map(i=>document.getElementById("nt_c"+i).checked),
-    planH: hingesOf("nt"),
+    planH: hingesOf("nt"), tstopDays: tstopOf("nt"),
     events:[{type:"entry", qty:q, price:P, stop:S, ts:Date.now()}],
     createdAt:Date.now()
   });
@@ -646,7 +646,7 @@ function openFutTrade(){
     adr:null, pv:ins.pv,
     rUnit: rUnitNow(FUT()), aumAtOpen: FUT().settings.aum, status:"open", last:P, lastMarkTs:Date.now(),
     checks:[0,1,2,3].map(i=>document.getElementById("f_c"+i).checked),
-    planH: hingesOf("f"),
+    planH: hingesOf("f"), tstopDays: tstopOf("f"),
     events:[{type:"entry", qty:q, price:P, stop:S, ts:Date.now()}],
     createdAt:Date.now()
   });
@@ -732,6 +732,14 @@ function tradeCard(t){
     else if(e.type==="budget") det="risk → "+e.mult+"R";
     return `<tr><td>${new Date(e.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</td><td>${e.type}</td><td>${det}</td></tr>`;
   }).join("");
+  let tsHtml="";
+  if(t.tstopDays>0){
+    const dayN = daysBetween(t.createdAt, Date.now()) + 1;
+    const left = t.tstopDays - dayN;
+    const dl = new Date(dayOf(t.createdAt) + t.tstopDays*864e5);
+    const col = left<0? "var(--red)" : (left<=2? "var(--amber)" : "var(--green)");
+    tsHtml = `<div class="metric"><div class="k">Time stop</div><div class="v" style="color:${col}">day ${dayN} of ${t.tstopDays}</div><div class="r">${left<0? "expired "+(-left)+"d ago — no-position test, now" : (left===0? "expires today ("+dl.toLocaleDateString(undefined,{month:"short",day:"numeric"})+")" : "expires "+dl.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" ("+left+"d left)")}</div></div>`;
+  }
   const totR = (d.realized+openPL)/R;
   const head = `<div class="tradehead">
       <button class="small" style="padding:2px 9px;" onclick="toggleCard('${t.id}')" title="${t.collapsed?"Expand":"Collapse"}">${t.collapsed?"&#9656;":"&#9662;"}</button>
@@ -756,6 +764,7 @@ function tradeCard(t){
       <div class="metric"><div class="k">Sequence at stop</div><div class="v ${cls(-seq)}">${fmt$(-seq)}</div><div class="r">realized − stop risk</div></div>
       <div class="metric"><div class="k">Total (mark)</div><div class="v ${cls(d.realized+openPL)}">${fmt$(d.realized+openPL)}</div><div class="r">${fmtR((d.realized+openPL)/R)}</div></div>
       ${adrHtml}
+      ${tsHtml}
     </div>
     <div class="calbox">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
@@ -1041,7 +1050,9 @@ function renderClosedFor(pf, statsId, tblId){
     }).join("");
     const p = t.planH||{};
     const planRow = [p.addIf?"<b>add if</b> "+esc(p.addIf):null, p.cutIf?"<b>cut if</b> "+esc(p.cutIf):null,
-                     p.waitIf?"<b>wait if</b> "+esc(p.waitIf):null, p.exit?"<b>exit</b> "+esc(p.exit):null].filter(Boolean).join(" &nbsp;·&nbsp; ");
+                     p.waitIf?"<b>wait if</b> "+esc(p.waitIf):null,
+                     t.tstopDays?"<b>time stop</b> "+t.tstopDays+"d":null,
+                     p.exit?"<b>exit</b> "+esc(p.exit):null].filter(Boolean).join(" &nbsp;·&nbsp; ");
     return `<tr><td style="font-family:inherit;"><button class="small" style="margin-right:6px" onclick="toggleLog('${t.id}')" id="tgl_${t.id}" title="Show event log & notes">&#9656;</button>${esc(t.ticker)}${t.notes?` <span class="muted" title="Has post-trade note">&#9998;</span>`:""}</td><td>${t.side>0?"L":"S"}</td><td>${TIER_NAMES[t.tier]}</td><td style="font-family:inherit;">${esc(t.concept)}</td><td class="num">${fmt$(t.rUnit)}</td><td class="num ${cls(d.realized)}">${fmt$(d.realized)}</td><td class="num ${cls(rm)}">${fmtR(rm)}${rm<-1.5?` <span class="pill short" style="font-size:10px;padding:1px 7px;" title="Loss well beyond 1R — discipline breach">breach</span>`:""}</td><td class="num">${S.days}</td><td class="num ${cls(S.rPerDay)}">${fmtR(S.rPerDay)}</td><td class="num ${cls(S.posPct)}">${S.posPct==null?"—":(S.posPct>0?"+":"")+S.posPct.toFixed(2)+"%"}</td><td class="num ${cls(S.roe)}">${S.roe==null?"—":(S.roe>0?"+":"")+S.roe.toFixed(2)+"%"}</td><td style="font-family:inherit;">${lossTagSelect(t)}</td><td class="num"><button class="small danger" title="Delete this trade" onclick="deleteTrade('${t.id}')">&#10005;</button></td></tr>
     <tr id="log_${t.id}" style="display:none;"><td colspan="13" style="padding:10px 8px 14px; background:rgba(0,0,0,.18); font-family:inherit;">
       ${planRow?`<div class="muted" style="margin-bottom:8px;">Plan at entry: ${planRow}</div>`:""}
