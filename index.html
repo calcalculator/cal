@@ -762,7 +762,7 @@ function tradeCard(t){
         <div class="head" style="margin-bottom:0;">CAL SAYS</div>
         <div style="display:flex;gap:6px;align-items:center;">
           <span class="muted" style="font-size:11px;">worst case:</span>
-          <button class="small ${bookOf(t).settings.sizeMode!=="be"?"primary":""}" onclick="setSizeMode('r','${book==="fut"?"fut":"stk"}')" title="Size adds so the sequence's worst case is your full R budget">1R</button>
+          <button class="small ${bookOf(t).settings.sizeMode!=="be"?"primary":""}" onclick="setSizeMode('r','${book==="fut"?"fut":"stk"}')" title="Size adds so the sequence's worst case is this trade's assigned R budget (currently ${d.mult}R)">${d.mult}R</button>
           <button class="small ${bookOf(t).settings.sizeMode==="be"?"primary":""}" onclick="setSizeMode('be','${book==="fut"?"fut":"stk"}')" title="Size adds so the sequence's worst case is breakeven — only banked profit finances size">B/E</button>
         </div>
       </div>
